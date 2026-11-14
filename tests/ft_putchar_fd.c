@@ -1,0 +1,11 @@
+#include "check.h"
+
+int	main(void)
+{
+	OUT("a", ft_putchar_fd('a', fd), "a");
+	OUT("newline", ft_putchar_fd('\n', fd), "\n");
+	OUT("space", ft_putchar_fd(' ', fd), " ");
+	OUTN("\\0 is one byte", ft_putchar_fd('\0', fd), "\0", 1);
+	OUTN("char above 127", ft_putchar_fd((char)200, fd), "\310", 1);
+	return (t_end());
+}
