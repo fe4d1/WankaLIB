@@ -2,7 +2,7 @@
 
 LIBFT Tester
 
-A tester for the 42 libft, subject version 19.3 (the three parts are mandatory, there is no bonus)
+A tester for the 42 libft, subject version 19.3 (Nov2026, the three parts are mandatory, there is no bonus)
 
 It checks the functions and also everything around them: files, 42 headers, norm, Makefile, prototypes, forbidden functions and the README
 
@@ -214,7 +214,7 @@ MIT, see [LICENSE](LICENSE)
 <details>
 <summary>Abrir</summary>
 
-Tester para la libft de 42, versión 19.3 del subject (las tres partes son obligatorias, no hay bonus)
+Tester para la libft de 42, versión 19.3 (Nov2026, las tres partes son obligatorias, no hay bonus)
 
 Revisa las funciones y todo lo demás: archivos, cabeceras 42, norma, Makefile, prototipos, funciones prohibidas y el README. Tu libft no se modifica: se copia a una carpeta oculta y se compila ahí
 
