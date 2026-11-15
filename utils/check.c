@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define PASS "\033[1;97m"
+#define PASS "\033[1;32m"
 #define FAIL "\033[1;97;41m"
 #define RST "\033[0m"
 

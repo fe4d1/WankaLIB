@@ -249,7 +249,7 @@ One file per function in `tests/`. Each one checks
 
 | Word | Meaning |
 |---|---|
-| `OK` | the check or test passed. White |
+| `OK` | the check or test passed. Green |
 | `KO` | it failed. See the file in `traces/`. White on red |
 | `WARN` | not a fail, but look at it. With `strict` it is a `KO` |
 | `MEM OK` | valgrind found no leaks and no invalid reads or writes in that function |
@@ -279,11 +279,14 @@ The result ends with a score out of 100 for what was run
 ```
 == result ==
   score      ███████████████████░  97 / 100
+             only a guide: at 42 one KO means 0
   functions  43 / 43
   checks     22 / 24
   time       22s
 
-   2 KO
+  ALMOST THEAAA DOGG CHECK IT OUTT
+
+   2 KO   at 42 this run would be a 0
     files: not a git repo, cannot check tracked files (warning, strict)
     norm: 3 files with errors
 ```
@@ -295,9 +298,16 @@ The result ends with a score out of 100 for what was run
 
 - a function counts when all its tests pass and valgrind finds nothing
 - with one KO or more the score is never 100
-- with no KO you get `CONGRATS, ALL PASSED`
+- with no KO you get `CONGRATZ MY G-DOGO, U GOOD TO GO NOW B)`, in green
+- with a KO you get a message for your score
 
-The score is only a guide. At 42 a single KO fails the project
+| Score | Message |
+|---|---|
+| below 30 | `WE GOTTA DO SMTHH ABT THIS` |
+| 30 to 69 | `AIGHT NOW WE TALKINGG` |
+| 70 to 99 | `ALMOST THEAAA DOGG CHECK IT OUTT` |
+
+**The score is only a guide.** At 42 one KO means 0, so a 97 here is a 0 there. The tester says it under the score on every run, in orange like the score, and again in red when there is a KO
 
 ## Add or change tests
 
@@ -475,7 +485,7 @@ Para no escribir `-p` cada vez, pulsa `p` en el menú una vez, o cambia `LIBFT` 
 
 | Palabra | Significa |
 |---|---|
-| `OK` | pasó. En blanco |
+| `OK` | pasó. En verde |
 | `KO` | falló. Mira el archivo en `traces/`. En blanco sobre rojo |
 | `WARN` | no es un fallo, pero conviene mirarlo. Con `strict` es un `KO` |
 | `MEM OK` | valgrind no encontró fugas ni lecturas o escrituras inválidas |
@@ -500,9 +510,16 @@ Al final sale una nota sobre 100 de lo que se ejecutó
 
 - una función cuenta si pasan todos sus tests y valgrind no encuentra nada
 - con algún KO la nota nunca es 100
-- sin ningún KO sale `CONGRATS, ALL PASSED`
+- sin ningún KO sale `CONGRATZ MY G-DOGO, U GOOD TO GO NOW B)`, en verde
+- con algún KO sale un mensaje según la nota
 
-La nota es orientativa. En 42 un solo KO suspende el proyecto
+| Nota | Mensaje |
+|---|---|
+| menos de 30 | `WE GOTTA DO SMTHH ABT THIS` |
+| de 30 a 69 | `AIGHT NOW WE TALKINGG` |
+| de 70 a 99 | `ALMOST THEAAA DOGG CHECK IT OUTT` |
+
+**La nota es solo orientativa.** En 42 un KO es un 0, así que un 97 aquí es un 0 allí. El tester lo dice debajo de la nota en cada ejecución, en naranja como la nota, y otra vez en rojo cuando hay algún KO
 
 ### Notas
 

@@ -24,8 +24,11 @@ CHK_KO=0
 F_RUN=0
 F_OK=0
 
-# red and white theme: G pass, R fail badge, Y warning, B titles, M dim
-G=$'\033[1;97m' R=$'\033[1;97;41m' Y=$'\033[31m' B=$'\033[1;31m'
+# red and white theme, green for what passes, orange for the score
+# W white, B titles, G pass, C pass badge, R fail badge, Y warning,
+# O score, M dim, D reset
+W=$'\033[1;97m' B=$'\033[1;31m' G=$'\033[1;32m' C=$'\033[1;97;42m'
+R=$'\033[1;97;41m' Y=$'\033[31m' O=$'\033[1;38;5;208m'
 M=$'\033[2m' D=$'\033[0m'
 
 HELLO=(
@@ -54,7 +57,7 @@ banner()
 	local line
 	printf "\n"
 	while IFS= read -r line; do
-		printf "  ${G}%s${B}%s${D}\n" "${line:0:33}" "${line:33}"
+		printf "  ${W}%s${B}%s${D}\n" "${line:0:33}" "${line:33}"
 	done <<'END'
 __      __             _          _     ___  ___
 \ \    / / __ _  _ _  | |__ __ _ | |   |_ _|| _ )
@@ -461,7 +464,7 @@ ask_path()
 	[ -n "$d" ] || return
 	if set_libft "$d"; then
 		echo "$LIBFT" > "$SAVED"
-		printf "  ${G}libft${D}  %s  ${M}(remembered)${D}\n" "${LIBFT/#$HOME/\~}"
+		printf "  ${W}libft${D}  %s  ${M}(remembered)${D}\n" "${LIBFT/#$HOME/\~}"
 		[ -f "$LIBFT/libft.h" ] \
 			|| printf "  ${Y}there is no libft.h in that folder${D}\n"
 	else
@@ -490,14 +493,14 @@ menu()
 	printf "\n${B}== menu ==${D}\n"
 	printf "  ${M}libft${D}     %s\n" "$lib"
 	printf "  ${M}valgrind${D}  %s\n\n" "$vg"
-	printf "  ${G}1${D}  soft      function tests without valgrind (fast)\n"
-	printf "  ${G}2${D}  moderate  norm, Makefile and function tests with valgrind\n"
-	printf "  ${G}3${D}  strict    everything, warnings count as KO\n"
-	printf "  ${G}4${D}  checks    every check, no function tests\n"
-	printf "  ${G}p${D}  path      change the libft folder\n"
-	printf "  ${G}v${D}  valgrind  turn it on or off\n"
-	printf "  ${G}h${D}  help      every target and option explained\n"
-	printf "  ${G}c${D}  clean     ${G}q${D}  quit\n"
+	printf "  ${W}1${D}  soft      function tests without valgrind (fast)\n"
+	printf "  ${W}2${D}  moderate  norm, Makefile and function tests with valgrind\n"
+	printf "  ${W}3${D}  strict    everything, warnings count as KO\n"
+	printf "  ${W}4${D}  checks    every check, no function tests\n"
+	printf "  ${W}p${D}  path      change the libft folder\n"
+	printf "  ${W}v${D}  valgrind  turn it on or off\n"
+	printf "  ${W}h${D}  help      every target and option explained\n"
+	printf "  ${W}c${D}  clean     ${W}q${D}  quit\n"
 	printf "  ${M}or type any targets, like: norm split atoi${D}\n"
 	printf "  ${M}your libft is copied again on every run:${D}\n"
 	printf "  ${M}edit it in another tab, come back and run again${D}\n"
@@ -554,7 +557,7 @@ bar()
 {
 	local n=$(($1 / 5)) i out=""
 	for ((i = 0; i < 20; i++)); do
-		[ $i -lt $n ] && out="$out${B}█" || out="$out${D}${M}░"
+		[ $i -lt $n ] && out="$out${O}█" || out="$out${D}${M}░"
 	done
 	printf "%s${D}" "$out"
 }
@@ -630,23 +633,27 @@ run_targets()
 		return 1
 	fi
 	S=$(score)
-	printf "  ${G}score${D}      %s  ${G}%d${D} / 100\n" "$(bar $S)" $S
+	printf "  ${O}score${D}      %s  ${O}%d / 100${D}\n" "$(bar $S)" $S
+	printf "  ${O}           only a guide: at 42 one KO means 0${D}\n"
 	[ $F_RUN -gt 0 ] && printf "  functions  %d / %d\n" $F_OK $F_RUN
 	[ $((CHK_OK + CHK_KO)) -gt 0 ] \
 		&& printf "  checks     %d / %d\n" $CHK_OK $((CHK_OK + CHK_KO))
 	[ $WARNS -gt 0 ] && printf "  ${Y}warnings   %d${D}\n" $WARNS
 	printf "  time       %ds\n" $SECONDS
 	if [ ${#FAILS[@]} = 0 ]; then
-		printf "\n  ${R} CONGRATS, ALL PASSED ${D}\n"
+		printf "\n  ${C} CONGRATZ MY G-DOGO, U GOOD TO GO NOW B) ${D}\n"
 		printf "  ${M}%s${D}\n" "$(say "${WIN[@]}")"
 		rmdir "$TR" 2> /dev/null
 		return 0
 	fi
-	printf "\n  ${R} %d KO ${D}\n" ${#FAILS[@]}
+	if [ $S -lt 30 ]; then v="WE GOTTA DO SMTHH ABT THIS"
+	elif [ $S -lt 70 ]; then v="AIGHT NOW WE TALKINGG"
+	else v="ALMOST THEAAA DOGG CHECK IT OUTT"; fi
+	printf "\n  ${O}%s${D}\n" "$v"
+	printf "\n  ${R} %d KO ${D}  ${B}at 42 this run would be a 0${D}\n" ${#FAILS[@]}
 	printf '    %s\n' "${FAILS[@]}"
 	printf "  traces in %s\n" "${TR/#$HOME/\~}"
 	printf "  ${M}%s${D}\n" "$(say "${LOSE[@]}")"
-	printf "  ${M}the score is only a guide: at 42 a single KO fails the project${D}\n"
 	return 1
 }
 
