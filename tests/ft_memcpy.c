@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* copies exactly n raw bytes, returns dst */
 int	main(void)
 {
 	char	d[10];

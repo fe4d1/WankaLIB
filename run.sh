@@ -6,6 +6,9 @@ source "$ROOT/config.sh"
 BUILD=$ROOT/.build
 BIN=$ROOT/.bin
 TR=$ROOT/traces
+SAVED=$ROOT/.libft_path
+ARG_PATH=
+SELF=
 ALL="$PART1 $PART2 $PART3"
 CHECKS="files header norm make protos symbols readme"
 VALGRIND=1
@@ -15,16 +18,80 @@ WARNS=0
 BUILT=0
 SECTION=
 
-G=$'\033[32m' R=$'\033[31m' Y=$'\033[33m' B=$'\033[1;36m' D=$'\033[0m'
+STRICT=0
+CHK_OK=0
+CHK_KO=0
+F_RUN=0
+F_OK=0
+
+# red and white theme: G pass, R fail badge, Y warning, B titles, M dim
+G=$'\033[1;97m' R=$'\033[1;97;41m' Y=$'\033[31m' B=$'\033[1;31m'
+M=$'\033[2m' D=$'\033[0m'
+
+HELLO=(
+	"Warming up valgrind. Hide your leaks."
+	"Let's see what malloc thinks of you today."
+	"No bonus, no excuses. Everything is mandatory."
+	"Copying your libft. The original stays untouched."
+)
+WIN=(
+	"Moulinette would be proud."
+	"Not a single byte leaked. Chef's kiss."
+	"Push it before something breaks."
+	"Clean run. Go grab a coffee."
+)
+LOSE=(
+	"Close. The traces know what you did."
+	"malloc can fail. So can we. Try again."
+	"KO is just OK read backwards. Go fix it."
+	"Read the trace, fix one thing, run again."
+)
+
+say() { local a=("$@"); printf "%s" "${a[RANDOM % ${#a[@]}]}"; }
+
+banner()
+{
+	local line
+	printf "\n"
+	while IFS= read -r line; do
+		printf "  ${G}%s${B}%s${D}\n" "${line:0:33}" "${line:33}"
+	done <<'END'
+__      __             _          _     ___  ___
+\ \    / / __ _  _ _  | |__ __ _ | |   |_ _|| _ )
+ \ \/\/ / / _` || ' \ | / // _` || |__  | | | _ \
+  \_/\_/  \__,_||_||_||_\_\\__,_||____||___||___/
+END
+	printf "  ${B}libft tester${D}  ${M}42 Malaga, subject 19.3${D}\n"
+}
 
 usage()
 {
 	cat <<END
 usage: ./run.sh [-p libft_path] [-u login] [-n] [target ...]
 
-targets
-  all       everything (default)
-  checks    files header norm make protos symbols readme
+./run.sh alone opens the menu and stays open: run things, change the
+libft folder, read this help, and leave with q. Your libft is copied
+again on every run, so edit it in another tab and just run again.
+With targets it runs them once and exits (in a pipe or a script, no
+target means all).
+
+libft folder, first one that exists
+  -p path, the folder chosen with p in the menu, LIBFT in config.sh,
+  the folder that contains the tester, the current folder
+
+quick levels
+  soft      function tests without valgrind (fast)
+  moderate  norm, Makefile and function tests with valgrind
+  strict    everything, and every warning counts as a KO
+
+in the menu only
+  p         change the libft folder (it is remembered)
+  v         turn valgrind on or off
+  q         quit
+
+targets (mix as many as you want, levels included)
+  all       everything
+  checks   files header norm make protos symbols readme
   files     required files and extra files
   header    42 header of every file (file name, login, mail)
   norm      norminette
@@ -41,22 +108,27 @@ maintenance
   reset     put the tester back as in its last commit (asks first)
 
 options
-  -p path   libft directory (default in config.sh)
+  -p path   libft directory
   -u login  expected login in the 42 headers
   -n        no valgrind (faster)
 END
-	exit 0
 }
 
 section() { SECTION=$1; printf "\n${B}== %s ==${D}\n" "$1"; }
-ok() { printf "  ${G}OK${D}    %s\n" "$1"; }
-warn() { printf "  ${Y}WARN${D}  %s\n" "$1"; WARNS=$((WARNS + 1)); }
+ok() { printf "  ${G}OK${D}    %s\n" "$1"; CHK_OK=$((CHK_OK + 1)); }
+warn()
+{
+	[ $STRICT = 1 ] && { ko "$1 (warning, strict)"; return; }
+	printf "  ${Y}WARN${D}  %s\n" "$1"
+	WARNS=$((WARNS + 1))
+}
 ko()
 {
 	printf "  ${R}KO${D}    %s" "$1"
 	[ -n "$2" ] && printf "  (traces/%s)" "$2"
 	printf "\n"
 	FAILS+=("$SECTION: $1")
+	CHK_KO=$((CHK_KO + 1))
 }
 
 is_func() { [[ " $(echo $ALL) " == *" $1 "* ]]; }
@@ -98,13 +170,14 @@ check_files()
 		for f in $(git -C "$LIBFT" ls-files); do
 			[[ " $expected " == *" $f "* ]] || ko "extra file tracked in git: $f"
 		done
-		[ -z "$(git -C "$LIBFT" status --porcelain)" ] \
+		[ -z "$(git -C "$LIBFT" status --porcelain | grep -vxF "?? ${SELF:-/}/")" ] \
 			|| warn "uncommitted changes (only pushed work is graded)"
 	else
 		warn "not a git repo, cannot check tracked files"
 	fi
 	for f in $(ls -A "$LIBFT"); do
 		[ "$f" = .git ] && continue
+		[ "$f" = "$SELF" ] && continue
 		[[ " $expected " == *" $f "* ]] && continue
 		git -C "$LIBFT" ls-files --error-unmatch "$f" > /dev/null 2>&1 \
 			|| warn "extra file in the folder (not tracked): $f"
@@ -322,6 +395,7 @@ run_func()
 	local f=$1 rc mem=""
 	printf "  %-16s" "$f"
 	[ -f "$ROOT/tests/$f.c" ] || { printf "${Y}no test file${D}\n"; return; }
+	F_RUN=$((F_RUN + 1))
 	if ! cc -g -w "$ROOT/tests/$f.c" "$ROOT/utils/check.c" -I "$BUILD" \
 		-I "$ROOT/utils" -L "$BUILD" -lft -Wl,--wrap=malloc -o "$BIN/$f" \
 		2> "$TR/$f.txt"; then
@@ -352,7 +426,137 @@ run_func()
 	else
 		printf "\n"
 		rm -f "$TR/$f.txt"
+		F_OK=$((F_OK + 1))
 	fi
+}
+
+# absolute path of a libft folder into LIBFT, 1 if it is not a folder
+set_libft()
+{
+	local d=${1/#\~/$HOME}
+	[ -n "$d" ] || return 1
+	[[ "$d" = /* ]] || [ -d "$d" ] || d=$ROOT/$d
+	d=$(cd "$d" 2> /dev/null && pwd) || return 1
+	LIBFT=$d
+}
+
+# -p, then the remembered folder, config.sh, around the tester, here
+find_libft()
+{
+	local conf=$LIBFT d
+	LIBFT=
+	if [ -n "$ARG_PATH" ]; then set_libft "$ARG_PATH"; return; fi
+	set_libft "$(cat "$SAVED" 2> /dev/null)" && return
+	set_libft "$conf" && return
+	for d in "$ROOT/.." "$PWD"; do
+		[ -f "$d/libft.h" ] && set_libft "$d" && return
+	done
+	return 1
+}
+
+ask_path()
+{
+	local d
+	read -e -r -p "  libft folder: " d || return
+	[ -n "$d" ] || return
+	if set_libft "$d"; then
+		echo "$LIBFT" > "$SAVED"
+		printf "  ${G}libft${D}  %s  ${M}(remembered)${D}\n" "${LIBFT/#$HOME/\~}"
+		[ -f "$LIBFT/libft.h" ] \
+			|| printf "  ${Y}there is no libft.h in that folder${D}\n"
+	else
+		printf "  ${Y}not a folder: %s${D}\n" "$d"
+	fi
+}
+
+toggle_valgrind()
+{
+	if ! command -v valgrind > /dev/null; then
+		printf "  ${Y}valgrind is not installed${D}\n"
+	elif [ $VALGRIND = 1 ]; then
+		VALGRIND=0
+		printf "  valgrind off: faster, leaks are not checked\n"
+	else
+		VALGRIND=1
+		printf "  valgrind on\n"
+	fi
+}
+
+menu()
+{
+	local vg=on lib=${LIBFT/#$HOME/\~}
+	[ $VALGRIND = 1 ] || vg=off
+	[ -n "$lib" ] || lib="${Y}not found, press p${D}"
+	printf "\n${B}== menu ==${D}\n"
+	printf "  ${M}libft${D}     %s\n" "$lib"
+	printf "  ${M}valgrind${D}  %s\n\n" "$vg"
+	printf "  ${G}1${D}  soft      function tests without valgrind (fast)\n"
+	printf "  ${G}2${D}  moderate  norm, Makefile and function tests with valgrind\n"
+	printf "  ${G}3${D}  strict    everything, warnings count as KO\n"
+	printf "  ${G}4${D}  checks    every check, no function tests\n"
+	printf "  ${G}p${D}  path      change the libft folder\n"
+	printf "  ${G}v${D}  valgrind  turn it on or off\n"
+	printf "  ${G}h${D}  help      every target and option explained\n"
+	printf "  ${G}c${D}  clean     ${G}q${D}  quit\n"
+	printf "  ${M}or type any targets, like: norm split atoi${D}\n"
+	printf "  ${M}your libft is copied again on every run:${D}\n"
+	printf "  ${M}edit it in another tab, come back and run again${D}\n"
+}
+
+# the menu stays open until q
+interactive()
+{
+	local pick full=1
+	while :; do
+		if [ $full = 1 ]; then
+			menu
+		else
+			printf "\n  ${M}1 soft  2 moderate  3 strict  4 checks  p path"
+			printf "  h help  q quit  (Enter: full menu)${D}\n"
+		fi
+		full=0
+		printf "\n"
+		read -e -r -p "  > " pick || { printf "\n"; break; }
+		[ -n "$pick" ] && history -s "$pick"
+		case $pick in
+			"") full=1 ;;
+			1) run_targets soft ;;
+			2) run_targets moderate ;;
+			3) run_targets strict ;;
+			4) run_targets checks ;;
+			p|path) ask_path ;;
+			v|valgrind) toggle_valgrind ;;
+			h|help|-h) printf "\n"; usage ;;
+			c|clean) clean ;;
+			q|quit|exit) break ;;
+			*) run_targets $pick ;;
+		esac
+	done
+	printf "  bye\n"
+}
+
+# out of 100: functions weigh 70 and checks 30 when both were run
+score()
+{
+	local c=$((CHK_OK + CHK_KO)) s=100
+	if [ $F_RUN -gt 0 ] && [ $c -gt 0 ]; then
+		s=$((70 * F_OK / F_RUN + 30 * CHK_OK / c))
+	elif [ $F_RUN -gt 0 ]; then
+		s=$((100 * F_OK / F_RUN))
+	elif [ $c -gt 0 ]; then
+		s=$((100 * CHK_OK / c))
+	fi
+	[ ${#FAILS[@]} -gt 0 ] && [ $s -gt 99 ] && s=99
+	echo $s
+}
+
+bar()
+{
+	local n=$(($1 / 5)) i out=""
+	for ((i = 0; i < 20; i++)); do
+		[ $i -lt $n ] && out="$out${B}█" || out="$out${D}${M}░"
+	done
+	printf "%s${D}" "$out"
 }
 
 run_funcs()
@@ -386,6 +590,66 @@ reset()
 		&& echo "tester reset to the last commit"
 }
 
+# runs the targets once and prints the result, 1 if there is a KO
+run_targets()
+{
+	local t c f v S
+	if [ -z "$LIBFT" ]; then
+		printf "  ${Y}no libft folder yet: press p and type where it is${D}\n"
+		return 1
+	fi
+	FAILS=() WARNS=0 BUILT=0 STRICT=0 SECTION=
+	CHK_OK=0 CHK_KO=0 F_RUN=0 F_OK=0 SECONDS=0
+	SELF=
+	[ "$ROOT/.." -ef "$LIBFT" ] && SELF=${ROOT##*/}
+	rm -rf "$TR" && mkdir -p "$TR"
+	printf "\n  ${M}%s${D}\n" "$(say "${HELLO[@]}")"
+
+	for t in "$@"; do
+		case $t in
+			soft) v=$VALGRIND; VALGRIND=0; run_funcs $ALL; VALGRIND=$v ;;
+			moderate) check_norm; check_make; run_funcs $ALL ;;
+			strict) STRICT=1; for c in $CHECKS; do check_$c; done; run_funcs $ALL ;;
+			all) for c in $CHECKS; do check_$c; done; run_funcs $ALL ;;
+			checks) for c in $CHECKS; do check_$c; done ;;
+			files|header|norm|make|protos|symbols|readme) check_$t ;;
+			funcs) run_funcs $ALL ;;
+			part1) run_funcs $PART1 ;;
+			part2) run_funcs $PART2 ;;
+			part3) run_funcs $PART3 ;;
+			*) f=ft_${t#ft_}
+				if is_func "$f"; then run_funcs "$f"
+				else echo "unknown target $t (h or -h for help)"; fi ;;
+		esac
+	done
+
+	printf "\n${B}== result ==${D}\n"
+	if [ $((F_RUN + CHK_OK + CHK_KO + WARNS)) = 0 ]; then
+		printf "  nothing was run\n"
+		rmdir "$TR" 2> /dev/null
+		return 1
+	fi
+	S=$(score)
+	printf "  ${G}score${D}      %s  ${G}%d${D} / 100\n" "$(bar $S)" $S
+	[ $F_RUN -gt 0 ] && printf "  functions  %d / %d\n" $F_OK $F_RUN
+	[ $((CHK_OK + CHK_KO)) -gt 0 ] \
+		&& printf "  checks     %d / %d\n" $CHK_OK $((CHK_OK + CHK_KO))
+	[ $WARNS -gt 0 ] && printf "  ${Y}warnings   %d${D}\n" $WARNS
+	printf "  time       %ds\n" $SECONDS
+	if [ ${#FAILS[@]} = 0 ]; then
+		printf "\n  ${R} CONGRATS, ALL PASSED ${D}\n"
+		printf "  ${M}%s${D}\n" "$(say "${WIN[@]}")"
+		rmdir "$TR" 2> /dev/null
+		return 0
+	fi
+	printf "\n  ${R} %d KO ${D}\n" ${#FAILS[@]}
+	printf '    %s\n' "${FAILS[@]}"
+	printf "  traces in %s\n" "${TR/#$HOME/\~}"
+	printf "  ${M}%s${D}\n" "$(say "${LOSE[@]}")"
+	printf "  ${M}the score is only a guide: at 42 a single KO fails the project${D}\n"
+	return 1
+}
+
 case $1 in
 	clean) clean; exit 0 ;;
 	reset) reset; exit $? ;;
@@ -393,44 +657,32 @@ esac
 
 while getopts "p:u:nh" opt; do
 	case $opt in
-		p) LIBFT=$OPTARG ;;
+		p) ARG_PATH=$OPTARG ;;
 		u) LOGIN=$OPTARG ;;
 		n) VALGRIND=0 ;;
-		*) usage ;;
+		h) usage; exit 0 ;;
+		*) usage; exit 1 ;;
 	esac
 done
 shift $((OPTIND - 1))
 
-[[ "$LIBFT" = /* ]] || { [ -d "$LIBFT" ] || LIBFT=$ROOT/$LIBFT; }
-LIBFT=$(cd "$LIBFT" 2> /dev/null && pwd) || { echo "libft folder not found (use -p path or set LIBFT in config.sh)"; exit 1; }
 command -v valgrind > /dev/null || VALGRIND=0
-rm -rf "$TR" && mkdir -p "$TR"
-printf "${B}libft tester${D}  %s\n" "${LIBFT/#$HOME/\~}"
+find_libft
+if [ -n "$ARG_PATH" ] && [ -z "$LIBFT" ]; then
+	echo "libft folder not found: $ARG_PATH"
+	exit 1
+fi
+banner
 
-[ $# = 0 ] && set -- all
-for t in "$@"; do
-	case $t in
-		all) for c in $CHECKS; do check_$c; done; run_funcs $ALL ;;
-		checks) for c in $CHECKS; do check_$c; done ;;
-		files|header|norm|make|protos|symbols|readme) check_$t ;;
-		funcs) run_funcs $ALL ;;
-		part1) run_funcs $PART1 ;;
-		part2) run_funcs $PART2 ;;
-		part3) run_funcs $PART3 ;;
-		*) f=ft_${t#ft_}
-			if is_func "$f"; then run_funcs "$f"
-			else echo "unknown target $t (try -h)"; fi ;;
-	esac
-done
-
-printf "\n${B}== result ==${D}\n"
-[ $WARNS -gt 0 ] && printf "  ${Y}%d warnings${D}\n" $WARNS
-if [ ${#FAILS[@]} = 0 ]; then
-	printf "  ${G}all good${D}\n"
-	rmdir "$TR" 2> /dev/null
+if [ "$1" = menu ] || { [ $# = 0 ] && [ -t 0 ] && [ -t 1 ]; }; then
+	interactive
 	exit 0
 fi
-printf "  ${R}%d KO${D}\n" ${#FAILS[@]}
-printf '    %s\n' "${FAILS[@]}"
-printf "  traces in %s\n" "${TR/#$HOME/\~}"
-exit 1
+if [ -z "$LIBFT" ]; then
+	echo "libft folder not found (use -p path, or run ./run.sh alone and press p)"
+	exit 1
+fi
+printf "  ${M}%s${D}\n" "${LIBFT/#$HOME/\~}"
+[ $# = 0 ] && set -- all
+run_targets "$@"
+exit $?

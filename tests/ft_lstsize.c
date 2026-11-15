@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* counts nodes from the given one, 0 for an empty list */
 int	main(void)
 {
 	t_list	*l;

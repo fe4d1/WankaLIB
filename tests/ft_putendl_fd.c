@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* writes the string plus one newline */
 int	main(void)
 {
 	OUT("hello", ft_putendl_fd("hello", fd), "hello\n");

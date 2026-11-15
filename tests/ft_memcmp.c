@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* compares n bytes as unsigned char, does not stop at \0 */
 int	main(void)
 {
 	T("equal", ft_memcmp("abc", "abc", 3) == 0);

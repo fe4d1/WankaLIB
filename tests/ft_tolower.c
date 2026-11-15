@@ -1,10 +1,12 @@
 #include "check.h"
 
+/* reference: libc */
 static int	ref(int c)
 {
 	return (tolower(c));
 }
 
+/* only A-Z change, same as libc on -1..255 */
 int	main(void)
 {
 	T("same as libc for every c from -1 to 255", t_range(ft_tolower, ref));

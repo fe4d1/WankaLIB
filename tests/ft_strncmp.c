@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* difference as unsigned char, stops at \0 or at n */
 int	main(void)
 {
 	T("equal", ft_strncmp("abc", "abc", 3) == 0);

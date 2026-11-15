@@ -6,6 +6,8 @@ A tester for the 42 libft, subject version 19.3 (Nov2026, the three parts are ma
 
 It checks the functions and also everything around them: files, 42 headers, norm, Makefile, prototypes, forbidden functions and the README
 
+One command, `./run.sh`, opens a menu that stays open: three levels (`soft` `moderate` `strict`), any mix of checks and functions, and a score out of 100 after every run
+
 Your libft is never modified. The tester copies it to a hidden folder and builds it there
 
 _42Malaga_
@@ -13,6 +15,32 @@ _42Malaga_
 > Versión en español al final: [Español](#español)
 
 ## Preview
+
+```
+  __      __             _          _     ___  ___
+  \ \    / / __ _  _ _  | |__ __ _ | |   |_ _|| _ )
+   \ \/\/ / / _` || ' \ | / // _` || |__  | | | _ \
+    \_/\_/  \__,_||_||_||_\_\\__,_||____||___||___/
+  libft tester  42 Malaga, subject 19.3
+
+== menu ==
+  libft     ~/42/libft
+  valgrind  on
+
+  1  soft      function tests without valgrind (fast)
+  2  moderate  norm, Makefile and function tests with valgrind
+  3  strict    everything, warnings count as KO
+  4  checks    every check, no function tests
+  p  path      change the libft folder
+  v  valgrind  turn it on or off
+  h  help      every target and option explained
+  c  clean     q  quit
+  or type any targets, like: norm split atoi
+  your libft is copied again on every run:
+  edit it in another tab, come back and run again
+
+  >
+```
 
 ![start](docs/1-start.png)
 
@@ -31,19 +59,90 @@ Requirements: Linux, `cc`, `make`
 
 `norminette` and `valgrind` are optional. If they are installed the tester uses them
 
+## Quick start
+
+```bash
+./run.sh
+```
+
+That is the only command you need. It opens the menu and it stays open until you press `q`
+
+1. Look at the `libft` line at the top of the menu. If it is not your libft, press `p` and type the folder. It is remembered for the next time
+2. Press `1`, `2`, `3` or `4` and Enter, or type what you want to run, like `norm split atoi`
+3. Read the result. The menu is still there
+
+To fix something, leave the tester open, change your code in another tab or in your editor, come back and run again. Your libft is copied again on every run, so there is nothing to restart
+
+### Where the tester looks for your libft
+
+The first one that exists
+
+| Order | Folder |
+|---|---|
+| 1 | `-p path` on the command line |
+| 2 | the folder you chose with `p` in the menu (saved in `.libft_path`) |
+| 3 | `LIBFT` in `config.sh`, by default `../libft` |
+| 4 | the folder that contains the tester, when it has a `libft.h` |
+| 5 | the folder you are in, when it has a `libft.h` |
+
+So if you clone the tester inside your libft, next to your `.c` files, it finds it alone. In that case its folder is not reported as an extra file, but do not add it to your repo
+
+### Without the menu
+
+Put what you want after the command. It runs once and exits
+
+```bash
+./run.sh soft
+./run.sh -p ../libft norm split atoi
+```
+
 ## Usage
 
 ```
 ./run.sh [options] [targets]
 ```
 
-Options go first. With no target everything is checked
+Options go first. With no target you get the menu. With targets it runs them once and exits. When there is no target and the output is not a terminal (a pipe, a script) everything is checked
+
+### Menu
+
+It opens when there is no target, or with the target `menu`. It stays open: after every run, and after the help, you are back at the prompt
+
+| Key | Does |
+|---|---|
+| `1` | level `soft` |
+| `2` | level `moderate` |
+| `3` | level `strict` |
+| `4` | every check, no function tests |
+| `p` | changes the libft folder and remembers it. Tab completes the path |
+| `v` | turns valgrind on or off for the next runs |
+| `h` | the help: every target and option. You stay in the menu |
+| `c` | deletes the build files and the traces |
+| `q` | quits |
+| Enter | shows the full menu again |
+| anything else | it is read as a list of targets, like `norm split atoi` |
+
+The up arrow brings back what you typed before
+
+### Levels
+
+| Level | Runs | Use it |
+|---|---|---|
+| `soft` | the 43 function tests without valgrind. Leaks are not checked | while you code, it takes a few seconds |
+| `moderate` | `norm`, `make` and the 43 function tests with valgrind | when a function looks finished |
+| `strict` | everything, and every `WARN` becomes a `KO` | before you push |
+
+The levels are also targets, so they work from the command line and can be mixed with the rest: `./run.sh -p ../libft soft norm`
 
 ### Examples
 
 | Command | What it does |
 |---|---|
-| `./run.sh -p ../libft` | everything |
+| `./run.sh` | the menu, it stays open |
+| `./run.sh -p ../libft` | the menu, with that libft |
+| `./run.sh -p ../libft all` | everything |
+| `./run.sh -p ../libft soft` | a level (`soft` `moderate` `strict`) |
+| `./run.sh -p ../libft soft norm readme` | mixed: a level and two checks |
 | `./run.sh -p ../libft norm` | one check |
 | `./run.sh -p ../libft header make readme` | several checks |
 | `./run.sh -p ../libft ft_split` | one function (`split` works too) |
@@ -62,25 +161,27 @@ Options go first. With no target everything is checked
 
 | Option | Meaning |
 |---|---|
-| `-p path` | where the libft is. Default is `LIBFT` in `config.sh` |
+| `-p path` | where the libft is. Without it, see [Where the tester looks for your libft](#where-the-tester-looks-for-your-libft) |
 | `-n` | no valgrind: faster, but leaks are not checked |
 | `-u login` | the login every 42 header must have. Without it the tester only checks that all files have the same author |
 | `-h` | help |
 
-To stop typing `-p`, set `LIBFT` in `config.sh`
+To stop typing `-p`, press `p` in the menu once, or set `LIBFT` in `config.sh`
 
 ### Targets
 
 | Target | Runs |
 |---|---|
-| none or `all` | everything |
+| none or `menu` | the menu |
+| `all` | everything |
+| `soft` `moderate` `strict` | a level, see [Levels](#levels) |
 | `checks` | `files header norm make protos symbols readme` |
 | `files` `header` `norm` `make` `protos` `symbols` `readme` | that check only |
 | `funcs` | the 43 function tests |
 | `part1` `part2` `part3` | the function tests of that part |
 | `ft_name` or `name` | that function only |
 
-The exit code is 0 when there is no KO
+The exit code is 0 when there is no KO. It is 1 when there is a KO or when nothing was run (an unknown target)
 
 ### Clean and reset
 
@@ -89,7 +190,7 @@ The exit code is 0 when there is no KO
 | `./run.sh clean` | deletes `.build/` `.bin/` and `traces/`. Like `make fclean` |
 | `./run.sh reset` | throws away every change made to the tester since the last commit, also new files. It lists the changes and asks you to type `yes` first |
 
-You rarely need `clean`: every run deletes the old traces, and `traces/` disappears when everything passes. None of these folders are tracked by git
+`clean` does not forget the libft folder. You rarely need it: every run deletes the old traces, and `traces/` disappears when everything passes. None of these folders are tracked by git
 
 `reset` goes back to the last commit, not to the GitHub version. To get exactly the GitHub version run `git fetch && git reset --hard origin/main`
 
@@ -148,15 +249,17 @@ One file per function in `tests/`. Each one checks
 
 | Word | Meaning |
 |---|---|
-| `OK` | the check or test passed |
-| `KO` | it failed. See the file in `traces/` |
-| `WARN` | not a fail, but look at it |
+| `OK` | the check or test passed. White |
+| `KO` | it failed. See the file in `traces/`. White on red |
+| `WARN` | not a fail, but look at it. With `strict` it is a `KO` |
 | `MEM OK` | valgrind found no leaks and no invalid reads or writes in that function |
 | `MEM KO` | valgrind found a problem. The details are in the trace file |
 | `CRASH` | the function crashed (segfault, bus error, abort) |
 | `TIMEOUT` | the test never finished, usually an infinite loop |
 
-`MEM` does not appear with `-n`
+`MEM` does not appear with `-n` or with `soft`
+
+### Traces
 
 Every KO leaves a file in `traces/`
 
@@ -168,6 +271,33 @@ KO test 11 (line 16): int min
 ```
 
 The line number is the line in `tests/ft_itoa.c`. Valgrind errors are added to the same file
+
+### Score
+
+The result ends with a score out of 100 for what was run
+
+```
+== result ==
+  score      ███████████████████░  97 / 100
+  functions  43 / 43
+  checks     22 / 24
+  time       22s
+
+   2 KO
+    files: not a git repo, cannot check tracked files (warning, strict)
+    norm: 3 files with errors
+```
+
+| What was run | Score |
+|---|---|
+| functions and checks | functions are 70 points, checks are 30 |
+| only functions, or only checks | they are the whole 100 |
+
+- a function counts when all its tests pass and valgrind finds nothing
+- with one KO or more the score is never 100
+- with no KO you get `CONGRATS, ALL PASSED`
+
+The score is only a guide. At 42 a single KO fails the project
 
 ## Add or change tests
 
@@ -196,6 +326,7 @@ config.sh    settings
 tests/       one file per function
 utils/       check.c check.h (the test macros) and protos.c
 traces/      created when something fails, deleted by clean
+.libft_path  the libft folder chosen with p in the menu, not tracked by git
 docs/        screenshots for this README
 ```
 
@@ -222,17 +353,90 @@ _42Malaga_
 
 Las capturas de cómo se ve están arriba, en "Preview"
 
+### Inicio rápido
+
+```bash
+./run.sh
+```
+
+Es el único comando que hace falta. Abre el menú y se queda abierto hasta que pulses `q`. Los textos del tester están en inglés
+
+1. Mira la línea `libft` de arriba del menú. Si no es tu libft, pulsa `p` y escribe la carpeta. Se recuerda para la próxima vez
+2. Pulsa `1`, `2`, `3` o `4` y Enter, o escribe lo que quieras ejecutar, por ejemplo `norm split atoi`
+3. Lee el resultado. El menú sigue ahí
+
+Para arreglar algo, deja el tester abierto, cambia tu código en otra pestaña o en tu editor, vuelve y ejecuta otra vez. Tu libft se copia de nuevo en cada ejecución, así que no hay que reiniciar nada
+
+### Dónde busca el tester tu libft
+
+La primera que exista
+
+| Orden | Carpeta |
+|---|---|
+| 1 | `-p ruta` en la línea de comandos |
+| 2 | la carpeta que elegiste con `p` en el menú (guardada en `.libft_path`) |
+| 3 | `LIBFT` en `config.sh`, por defecto `../libft` |
+| 4 | la carpeta que contiene al tester, si tiene un `libft.h` |
+| 5 | la carpeta en la que estás, si tiene un `libft.h` |
+
+Así, si clonas el tester dentro de tu libft, junto a tus `.c`, la encuentra solo. En ese caso su carpeta no se cuenta como archivo extra, pero no la añadas a tu repo
+
+### Sin el menú
+
+Pon lo que quieras después del comando. Se ejecuta una vez y sale
+
+```bash
+./run.sh soft
+./run.sh -p ../libft norm split atoi
+```
+
 ### Uso
 
 ```
 ./run.sh [opciones] [targets]
 ```
 
-Las opciones van primero. Sin target se revisa todo
+Las opciones van primero. Sin target sale el menú. Con targets los ejecuta una vez y sale. Si no hay target y la salida no es una terminal (un pipe, un script) se revisa todo
+
+### Menú
+
+Sale cuando no hay target, o con el target `menu`. Se queda abierto: después de cada ejecución, y después de la ayuda, vuelves al prompt
+
+| Tecla | Hace |
+|---|---|
+| `1` | nivel `soft` |
+| `2` | nivel `moderate` |
+| `3` | nivel `strict` |
+| `4` | todos los chequeos, sin funciones |
+| `p` | cambia la carpeta de la libft y la recuerda. El tabulador completa la ruta |
+| `v` | enciende o apaga valgrind para las siguientes ejecuciones |
+| `h` | la ayuda: todos los targets y opciones. Sigues en el menú |
+| `c` | borra los archivos de compilación y las trazas |
+| `q` | sale |
+| Enter | vuelve a mostrar el menú completo |
+| cualquier otra cosa | se lee como una lista de targets, por ejemplo `norm split atoi` |
+
+La flecha arriba recupera lo que escribiste antes
+
+### Niveles
+
+| Nivel | Ejecuta | Úsalo |
+|---|---|---|
+| `soft` | las 43 funciones sin valgrind. No revisa fugas | mientras programas, tarda unos segundos |
+| `moderate` | `norm`, `make` y las 43 funciones con valgrind | cuando una función parece terminada |
+| `strict` | todo, y cada `WARN` cuenta como `KO` | antes de hacer push |
+
+Los niveles también son targets: funcionan desde la línea de comandos y se pueden mezclar con los demás, por ejemplo `./run.sh -p ../libft soft norm`
+
+### Comandos
 
 | Comando | Qué hace |
 |---|---|
-| `./run.sh -p ../libft` | todo |
+| `./run.sh` | el menú, se queda abierto |
+| `./run.sh -p ../libft` | el menú, con esa libft |
+| `./run.sh -p ../libft all` | todo |
+| `./run.sh -p ../libft soft` | un nivel (`soft` `moderate` `strict`) |
+| `./run.sh -p ../libft soft norm readme` | mezclado: un nivel y dos chequeos |
 | `./run.sh -p ../libft norm` | un chequeo |
 | `./run.sh -p ../libft header make readme` | varios chequeos |
 | `./run.sh -p ../libft ft_split` | una función (`split` también vale) |
@@ -249,12 +453,12 @@ Las opciones van primero. Sin target se revisa todo
 
 | Opción | Significa |
 |---|---|
-| `-p ruta` | dónde está la libft. Por defecto, `LIBFT` en `config.sh` |
+| `-p ruta` | dónde está la libft. Sin esta opción, mira "Dónde busca el tester tu libft" |
 | `-n` | sin valgrind: más rápido, pero no revisa fugas |
 | `-u login` | el login que deben tener todas las cabeceras. Sin esta opción solo se comprueba que todos los archivos tengan el mismo autor |
 | `-h` | ayuda |
 
-Para no escribir `-p` cada vez, cambia `LIBFT` en `config.sh`
+Para no escribir `-p` cada vez, pulsa `p` en el menú una vez, o cambia `LIBFT` en `config.sh`
 
 ### Limpiar y resetear
 
@@ -263,7 +467,7 @@ Para no escribir `-p` cada vez, cambia `LIBFT` en `config.sh`
 | `./run.sh clean` | borra `.build/` `.bin/` y `traces/`. Como `make fclean` |
 | `./run.sh reset` | descarta todos los cambios hechos al tester desde el último commit, también los archivos nuevos. Antes muestra la lista y pide escribir `yes` |
 
-Casi nunca hace falta `clean`: cada ejecución borra las trazas anteriores y `traces/` desaparece si todo pasa. Ninguna de estas carpetas se sube a git
+`clean` no olvida la carpeta de la libft. Casi nunca hace falta: cada ejecución borra las trazas anteriores y `traces/` desaparece si todo pasa. Ninguna de estas carpetas se sube a git
 
 `reset` vuelve al último commit, no a la versión de GitHub. Para tener exactamente la de GitHub: `git fetch && git reset --hard origin/main`
 
@@ -271,15 +475,34 @@ Casi nunca hace falta `clean`: cada ejecución borra las trazas anteriores y `tr
 
 | Palabra | Significa |
 |---|---|
-| `OK` | pasó |
-| `KO` | falló. Mira el archivo en `traces/` |
-| `WARN` | no es un fallo, pero conviene mirarlo |
+| `OK` | pasó. En blanco |
+| `KO` | falló. Mira el archivo en `traces/`. En blanco sobre rojo |
+| `WARN` | no es un fallo, pero conviene mirarlo. Con `strict` es un `KO` |
 | `MEM OK` | valgrind no encontró fugas ni lecturas o escrituras inválidas |
 | `MEM KO` | valgrind encontró un problema. El detalle está en la traza |
 | `CRASH` | la función crasheó (segfault, bus error, abort) |
 | `TIMEOUT` | el test no terminó, casi siempre un bucle infinito |
 
+`MEM` no aparece con `-n` ni con `soft`
+
 Cada KO deja un archivo en `traces/` con el número de línea del test, lo que se obtuvo y lo que se esperaba
+
+El código de salida es 0 si no hay ningún KO. Es 1 si hay algún KO o si no se ejecutó nada (un target desconocido)
+
+### Nota
+
+Al final sale una nota sobre 100 de lo que se ejecutó
+
+| Qué se ejecutó | Nota |
+|---|---|
+| funciones y chequeos | las funciones valen 70 puntos y los chequeos 30 |
+| solo funciones, o solo chequeos | valen los 100 |
+
+- una función cuenta si pasan todos sus tests y valgrind no encuentra nada
+- con algún KO la nota nunca es 100
+- sin ningún KO sale `CONGRATS, ALL PASSED`
+
+La nota es orientativa. En 42 un solo KO suspende el proyecto
 
 ### Notas
 

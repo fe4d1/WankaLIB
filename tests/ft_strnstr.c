@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* the needle must fit entirely in the first len bytes */
 int	main(void)
 {
 	const char	*h = "lorem ipsum dolor";

@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* same result as libc atoi: spaces, one sign, stops at the first non digit */
 int	main(void)
 {
 	const char	*v[] = {"0", "42", "-42", "+42", "   42", "\t\n\v\f\r 42",

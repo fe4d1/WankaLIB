@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* searches n bytes as unsigned char, does not stop at \0 */
 int	main(void)
 {
 	const char	*s = "hello\0world";

@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* zeroes exactly n bytes, nothing outside */
 int	main(void)
 {
 	char	a[12];

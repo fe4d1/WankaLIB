@@ -1,17 +1,20 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* returns the char plus its index */
 static char	add_index(unsigned int i, char c)
 {
 	return (c + i);
 }
 
+/* returns the char in uppercase */
 static char	upper(unsigned int i, char c)
 {
 	(void)i;
 	return (toupper(c));
 }
 
+/* new string made of f(i, c), original untouched */
 int	main(void)
 {
 	const char	*s = "hello";

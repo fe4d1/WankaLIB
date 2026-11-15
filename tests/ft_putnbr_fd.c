@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* writes digits, sign and INT_MIN */
 int	main(void)
 {
 	OUT("0", ft_putnbr_fd(0, fd), "0");

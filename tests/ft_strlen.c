@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* counts bytes up to the first \0 */
 int	main(void)
 {
 	char	big[2001];

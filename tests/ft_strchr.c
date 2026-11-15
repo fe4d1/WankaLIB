@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* first match, c used as a char, \0 can be found */
 int	main(void)
 {
 	const char	*s = "hello world";

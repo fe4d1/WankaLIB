@@ -3,17 +3,20 @@
 static char	g_seen[8];
 static int	g_n;
 
+/* records each content, to check the order */
 static void	see(void *p)
 {
 	if (g_n < 7)
 		g_seen[g_n++] = *(char *)p;
 }
 
+/* uppercases the content in place */
 static void	upper(void *p)
 {
 	*(char *)p = toupper(*(char *)p);
 }
 
+/* f runs once per node, in order, on the real content */
 int	main(void)
 {
 	t_list	*l;

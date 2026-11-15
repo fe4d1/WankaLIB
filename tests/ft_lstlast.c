@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* returns the last node, NULL for an empty list */
 int	main(void)
 {
 	t_list	*l;

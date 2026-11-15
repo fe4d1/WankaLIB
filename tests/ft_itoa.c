@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* digits, sign, INT_MIN, malloc failure */
 int	main(void)
 {
 	TS("0", ft_itoa(0), "0");

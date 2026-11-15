@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* no empty words, NULL at the end, frees everything if a malloc fails */
 int	main(void)
 {
 	TT("three words", ft_split("hello big world", ' '), "hello", "big",

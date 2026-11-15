@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* writes the string as it is, nothing added */
 int	main(void)
 {
 	OUT("hello", ft_putstr_fd("hello", fd), "hello");

@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* new copy of the exact size (len + 1), NULL if malloc fails */
 int	main(void)
 {
 	const char	*s = "hello";

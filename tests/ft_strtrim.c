@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* removes the set chars from both ends only */
 int	main(void)
 {
 	TS("both ends", ft_strtrim("  hello  ", " "), "hello");

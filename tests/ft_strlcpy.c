@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* returns strlen(src), copies at most size - 1, always ends with \0 */
 int	main(void)
 {
 	char	d[10];

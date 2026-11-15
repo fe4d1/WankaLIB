@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* at most len chars from start, empty if start is past the end */
 int	main(void)
 {
 	char	*s;

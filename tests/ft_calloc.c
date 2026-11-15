@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* 1 if the n bytes are all zero */
 static int	all_zero(unsigned char *p, size_t n)
 {
 	while (n--)
@@ -9,6 +10,7 @@ static int	all_zero(unsigned char *p, size_t n)
 	return (1);
 }
 
+/* zeroed memory (heap is dirtied first), size 0, overflow, malloc failure */
 int	main(void)
 {
 	unsigned char	*p;

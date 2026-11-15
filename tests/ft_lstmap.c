@@ -4,6 +4,7 @@
 static int	g_made;
 static int	g_del;
 
+/* f: new uppercased copy, counts the contents it makes */
 static void	*upper(void *p)
 {
 	char	*s;
@@ -14,12 +15,14 @@ static void	*upper(void *p)
 	return (s);
 }
 
+/* counts its calls and frees the content */
 static void	del(void *p)
 {
 	g_del++;
 	free(p);
 }
 
+/* each malloc fails in turn: NULL and every content made by f deleted */
 static void	fail_every_malloc(t_list *l)
 {
 	t_list	*m;
@@ -48,6 +51,7 @@ static void	fail_every_malloc(t_list *l)
 	}
 }
 
+/* new list with f applied, original untouched, no leak on failure */
 int	main(void)
 {
 	t_list	*l;

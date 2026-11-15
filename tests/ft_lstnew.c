@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* node keeps the pointer (no copy), next is NULL */
 int	main(void)
 {
 	char	*s = "hello";

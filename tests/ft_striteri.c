@@ -2,18 +2,21 @@
 
 static int	g_calls;
 
+/* adds the index to the char and counts its calls */
 static void	add_index(unsigned int i, char *c)
 {
 	*c += i;
 	g_calls++;
 }
 
+/* uppercases only the char at index 0 */
 static void	upper_first(unsigned int i, char *c)
 {
 	if (i == 0)
 		*c = toupper(*c);
 }
 
+/* f gets the index and the address of each char, changed in place */
 int	main(void)
 {
 	char	a[] = "aaaa";

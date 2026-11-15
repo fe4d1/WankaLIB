@@ -2,6 +2,7 @@
 
 static char	g_d[12];
 
+/* fills the buffer with x then puts s: any extra write shows */
 static char	*set(const char *s)
 {
 	memset(g_d, 'x', 12);
@@ -9,6 +10,7 @@ static char	*set(const char *s)
 	return (g_d);
 }
 
+/* returns the length it tried to make, never writes past size */
 int	main(void)
 {
 	T("enough room returns total length", ft_strlcat(set("ab"), "cde", 12) == 5);

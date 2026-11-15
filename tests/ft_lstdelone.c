@@ -3,12 +3,14 @@
 
 static int	g_del;
 
+/* counts its calls and frees the content */
 static void	del(void *p)
 {
 	g_del++;
 	free(p);
 }
 
+/* frees one node only, never the next one */
 int	main(void)
 {
 	t_list	*a;

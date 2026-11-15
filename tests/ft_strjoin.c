@@ -1,6 +1,7 @@
 #include "check.h"
 #include <stdlib.h>
 
+/* new string s1 + s2, empty strings included */
 int	main(void)
 {
 	TS("two words", ft_strjoin("hello ", "world"), "hello world");

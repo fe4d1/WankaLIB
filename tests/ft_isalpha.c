@@ -1,10 +1,12 @@
 #include "check.h"
 
+/* reference: libc result reduced to 1 or 0 */
 static int	ref(int c)
 {
 	return (isalpha(c) != 0);
 }
 
+/* returns exactly 1 or 0: whole range -1..255 plus the borders */
 int	main(void)
 {
 	T("exactly 1 or 0 for every c from -1 to 255", t_range(ft_isalpha, ref));

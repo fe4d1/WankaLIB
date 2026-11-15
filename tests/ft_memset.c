@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* fills len bytes with c as unsigned char, returns the pointer */
 int	main(void)
 {
 	char	a[12];

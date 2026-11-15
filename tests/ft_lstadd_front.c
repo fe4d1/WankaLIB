@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* node becomes the head and points to the old head */
 int	main(void)
 {
 	t_list	*l;

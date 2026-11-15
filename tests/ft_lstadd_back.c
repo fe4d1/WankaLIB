@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* node goes last, head changes only if the list was empty */
 int	main(void)
 {
 	t_list	*l;

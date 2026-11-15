@@ -3,12 +3,14 @@
 
 static int	g_del;
 
+/* counts its calls and frees the content */
 static void	del(void *p)
 {
 	g_del++;
 	free(p);
 }
 
+/* del on every node from the given one, pointer set to NULL */
 int	main(void)
 {
 	t_list	*l;

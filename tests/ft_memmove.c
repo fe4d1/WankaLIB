@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* copy stays right when src and dst overlap, both directions */
 int	main(void)
 {
 	char	b[11];

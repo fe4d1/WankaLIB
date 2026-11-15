@@ -1,5 +1,6 @@
 #include "check.h"
 
+/* writes exactly one byte on fd, even \0 or above 127 */
 int	main(void)
 {
 	OUT("a", ft_putchar_fd('a', fd), "a");
