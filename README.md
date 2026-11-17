@@ -32,6 +32,8 @@ _42Malaga_
 == menu ==
   libft     ~/42/libft
   valgrind  on
+  where     off (only OK or KO, you find the bug in your code)
+  version   up to date (newest version)
 
   1  soft      function tests without valgrind (fast)
   2  moderate  norm, Makefile and function tests with valgrind
@@ -39,6 +41,7 @@ _42Malaga_
   4  checks    every check, no function tests
   p  path      change the libft folder
   v  valgrind  turn it on or off
+  w  where     show the line of your code that crashes or leaks
   h  help      every target and option explained
   c  clean     q  quit
   or type any targets, like: norm split atoi
@@ -73,8 +76,17 @@ Requirements: Linux, `cc`, `make`
 
 or `u` in the menu. It downloads the last version (`git pull`), shows what changed and, in the menu, opens the new version right away
 
-- every time the menu opens the tester looks at GitHub in the background, it changes nothing, it only compares commits. When there is something new you see `new version available, press u` in the menu and a line under the banner
-- the notice shows from the next time the menu is drawn (Enter, or the next start)
+- every time the tester starts it looks at GitHub in the background, it changes nothing, it only compares commits
+- the `version` line at the top of the menu shows the result
+
+| `version` says | Meaning |
+|---|---|
+| `up to date (newest version)` | you have the last version |
+| `new version available, press u to update` | there is a new version, `u` also appears in the menu |
+| `checking...` | GitHub has not answered yet, press Enter to see the menu again |
+| `could not check (no internet?)` | GitHub could not be reached |
+| `update check off` | `UPDATE_CHECK=0` in `config.sh` |
+| `not a git clone, cannot update` | the tester was downloaded as a zip |
 - if you changed tracked files of the tester (like `LIBFT` in `config.sh`) they are kept: git stashes them, updates and puts them back
 - `UPDATE_CHECK=0` in `config.sh` turns the check off. `./run.sh update` still works
 - it needs a clone made with git. A zip download cannot update
@@ -332,7 +344,7 @@ Valgrind errors are added at the end of the same file
 Off by default. The tester tells you that a test failed and what it was looking for, finding the bug in your code is up to you. Turn it on when you want help
 
 - `w` in the menu, `-w` on the command line, or `WHERE=1` in `config.sh` to have it always on
-- the menu shows `where on` or `where off`
+- the menu shows `where on` or `where off` with what it means
 
 With `where` on the tester builds a second copy of your libft with `-g` (debug information), only for the function tests. Your Makefile and the `make` check do not change
 
@@ -490,10 +502,19 @@ Para arreglar algo, deja el tester abierto, cambia tu código en otra pestaña o
 
 o `u` en el menú. Descarga la última versión (`git pull`), muestra qué cambió y, en el menú, abre la versión nueva al momento
 
-- cada vez que se abre el menú el tester mira GitHub en segundo plano, no cambia nada, solo compara commits. Si hay algo nuevo sale `new version available, press u` en el menú y una línea debajo del banner
-- el aviso sale desde la siguiente vez que se dibuja el menú (Enter, o el siguiente arranque)
+- cada vez que arranca el tester mira GitHub en segundo plano, no cambia nada, solo compara commits
+- la línea `version` de arriba del menú muestra el resultado
+
+| `version` dice | Significa |
+|---|---|
+| `up to date (newest version)` | tienes la última versión |
+| `new version available, press u to update` | hay una versión nueva, `u` también sale en el menú |
+| `checking...` | GitHub todavía no respondió, pulsa Enter para ver el menú otra vez |
+| `could not check (no internet?)` | no se pudo conectar con GitHub |
+| `update check off` | `UPDATE_CHECK=0` en `config.sh` |
+| `not a git clone, cannot update` | el tester se descargó como zip |
 - si cambiaste archivos del tester (por ejemplo `LIBFT` en `config.sh`) se conservan: git los guarda, actualiza y los vuelve a poner
-- `UPDATE_CHECK=0` en `config.sh` apaga el aviso. `./run.sh update` sigue funcionando
+- `UPDATE_CHECK=0` en `config.sh` apaga la comprobación. `./run.sh update` sigue funcionando
 - hace falta un clon hecho con git. Una descarga en zip no se puede actualizar
 
 **¿Lo clonaste antes de que existiera `update`?** Tu `run.sh` todavía no lo conoce. Ejecuta esto una vez y desde entonces `u` y `./run.sh update` funcionan
@@ -649,7 +670,7 @@ KO test 11 (line 28): int min
 Apagado por defecto. El tester te dice qué test falló y qué buscaba, encontrar el bug en tu código es cosa tuya. Actívalo cuando quieras ayuda
 
 - `w` en el menú, `-w` en la línea de comandos, o `WHERE=1` en `config.sh` para tenerlo siempre activado
-- el menú muestra `where on` o `where off`
+- el menú muestra `where on` o `where off` con lo que significa
 
 Con `where` activado el tester compila una segunda copia de tu libft con `-g` (información de depuración), solo para los tests de funciones. Tu Makefile y el chequeo `make` no cambian
 

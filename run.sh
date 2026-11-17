@@ -8,6 +8,7 @@ BIN=$ROOT/.bin
 TR=$ROOT/traces
 SAVED=$ROOT/.libft_path
 UPD=$ROOT/.update
+UPD_PID=
 ARGS=("$@")
 ARG_PATH=
 SELF=
@@ -602,15 +603,16 @@ toggle_valgrind()
 
 menu()
 {
-	local vg=on wh=off lib=${LIBFT/#$HOME/\~}
-	[ $WHERE = 1 ] && wh=on
+	local vg=on lib=${LIBFT/#$HOME/\~}
+	local wh="off ${M}(only OK or KO, you find the bug in your code)${D}"
+	[ $WHERE = 1 ] && wh="on ${M}(crashes and leaks show the line of your code)${D}"
 	[ $VALGRIND = 1 ] || vg=off
 	[ -n "$lib" ] || lib="${Y}not found, press p${D}"
 	printf "\n${B}== menu ==${D}\n"
 	printf "  ${M}libft${D}     %s\n" "$lib"
 	printf "  ${M}valgrind${D}  %s\n" "$vg"
 	printf "  ${M}where${D}     %s\n" "$wh"
-	[ -s "$UPD" ] && printf "  ${M}update${D}    ${O}new version available, press u${D}\n"
+	printf "  ${M}version${D}   %s\n" "$(version_line)"
 	printf "\n"
 	printf "  ${W}1${D}  soft      function tests without valgrind (fast)\n"
 	printf "  ${W}2${D}  moderate  norm, Makefile and function tests with valgrind\n"
@@ -620,7 +622,7 @@ menu()
 	printf "  ${W}v${D}  valgrind  turn it on or off\n"
 	printf "  ${W}w${D}  where     show the line of your code that crashes or leaks\n"
 	printf "  ${W}h${D}  help      every target and option explained\n"
-	[ -s "$UPD" ] && printf "  ${W}u${D}  update    download the new version of the tester\n"
+	has_update && printf "  ${W}u${D}  update    download the new version of the tester\n"
 	printf "  ${W}c${D}  clean     ${W}q${D}  quit\n"
 	printf "  ${M}or type any targets, like: norm split atoi${D}\n"
 	printf "  ${M}your libft is copied again on every run:${D}\n"
@@ -630,14 +632,19 @@ menu()
 # the menu stays open until q
 interactive()
 {
-	local pick full=1
+	local pick full=1 i
+	# gives the update check started at launch a moment to finish
+	for ((i = 0; i < 30; i++)); do
+		[ -n "$UPD_PID" ] && kill -0 "$UPD_PID" 2> /dev/null || break
+		sleep 0.1
+	done
 	while :; do
 		if [ $full = 1 ]; then
 			menu
 		else
 			printf "\n  ${M}1 soft  2 moderate  3 strict  4 checks  p path  w where"
 			printf "  h help  q quit  (Enter: full menu)${D}\n"
-			[ -s "$UPD" ] && printf "  ${O}u update: new version of the tester${D}\n"
+			has_update && printf "  ${O}u update: new version of the tester${D}\n"
 		fi
 		full=0
 		printf "\n"
@@ -702,19 +709,42 @@ quiet_git()
 		timeout 10 git -C "$ROOT" "$@" 2> /dev/null
 }
 
-# looks at GitHub without changing anything: .update holds the new commit
-# when the remote has one that this clone does not have yet
+# looks at GitHub without changing anything and writes the result in .update
+# latest: nothing new, new <commit>: GitHub has a commit this clone does not
+# have, unknown: GitHub could not be reached
 check_update()
 {
 	local remote
 	[ "$UPDATE_CHECK" = 1 ] || return
 	git -C "$ROOT" rev-parse --git-dir > /dev/null 2>&1 || return
 	remote=$(quiet_git ls-remote origin HEAD | cut -f1)
-	[ -n "$remote" ] || return
-	if git -C "$ROOT" merge-base --is-ancestor "$remote" HEAD 2> /dev/null; then
-		rm -f "$UPD"
+	if [ -z "$remote" ]; then
+		echo unknown > "$UPD"
+	elif git -C "$ROOT" merge-base --is-ancestor "$remote" HEAD 2> /dev/null; then
+		echo latest > "$UPD"
 	else
-		echo "$remote" > "$UPD"
+		echo "new $remote" > "$UPD"
+	fi
+}
+
+# 0 when the last check found a new version
+has_update() { grep -q '^new ' "$UPD" 2> /dev/null; }
+
+# the version line of the menu, only to look at
+version_line()
+{
+	if ! git -C "$ROOT" rev-parse --git-dir > /dev/null 2>&1; then
+		printf "${M}not a git clone, cannot update${D}"
+	elif [ "$UPDATE_CHECK" != 1 ]; then
+		printf "${M}update check off (UPDATE_CHECK in config.sh)${D}"
+	elif has_update; then
+		printf "${O}new version available, press u to update${D}"
+	elif grep -qx latest "$UPD" 2> /dev/null; then
+		printf "${G}up to date${D} ${M}(newest version)${D}"
+	elif [ -n "$UPD_PID" ] && kill -0 "$UPD_PID" 2> /dev/null; then
+		printf "${M}checking...${D}"
+	else
+		printf "${M}could not check (no internet?)${D}"
 	fi
 }
 
@@ -734,7 +764,7 @@ update()
 		printf "  its own. ./run.sh reset puts it back as in its last commit\n"
 		return 1
 	fi
-	rm -f "$UPD"
+	echo latest > "$UPD"
 	new=$(git -C "$ROOT" rev-parse HEAD)
 	if [ "$old" = "$new" ]; then
 		echo "  already up to date"
@@ -859,8 +889,8 @@ if [ -n "$ARG_PATH" ] && [ -z "$LIBFT" ]; then
 	exit 1
 fi
 banner
-[ -t 1 ] && { check_update & } 2> /dev/null
-[ -s "$UPD" ] && printf "  ${O}new version of the tester: press u in the menu or ./run.sh update${D}\n"
+[ -t 1 ] && { check_update & UPD_PID=$!; } 2> /dev/null
+has_update && printf "  ${O}new version of the tester: press u in the menu or ./run.sh update${D}\n"
 
 if [ "$1" = menu ] || { [ $# = 0 ] && [ -t 0 ] && [ -t 1 ]; }; then
 	interactive
