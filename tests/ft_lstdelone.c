@@ -20,9 +20,12 @@ int	main(void)
 	b = t_node(strdup("b"));
 	a->next = b;
 	ft_lstdelone(a, del);
+	// del frees the content once, the node itself is freed with free
 	T("del called once", g_del == 1);
+	// next must not be freed, valgrind shows an invalid read if it was
 	T("next node is not freed", !strcmp(b->content, "b") && b->next == NULL);
 	ft_lstdelone(b, del);
+	// a node with no next
 	T("single node", g_del == 2);
 	return (t_end());
 }

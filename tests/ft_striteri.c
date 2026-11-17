@@ -24,12 +24,16 @@ int	main(void)
 	char	e[] = "";
 
 	ft_striteri(a, add_index);
+	// f gets 0 1 2 3 as index, aaaa becomes abcd in the same string
 	T("index is passed and string is modified in place", !strcmp(a, "abcd"));
+	// once per char, not for the terminator
 	T("f called once per char", g_calls == 4);
 	ft_striteri(b, upper_first);
+	// f gets the address of the real char, so the change stays
 	T("f gets the address of each char", !strcmp(b, "Hello"));
 	g_calls = 0;
 	ft_striteri(e, add_index);
+	// an empty string has no char so f is never called
 	T("empty string never calls f", g_calls == 0);
 	return (t_end());
 }

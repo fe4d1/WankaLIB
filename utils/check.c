@@ -1,4 +1,7 @@
+#define _GNU_SOURCE
 #include "check.h"
+#include <dlfcn.h>
+#include <execinfo.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -7,8 +10,16 @@
 #define PASS "\033[1;32m"
 #define FAIL "\033[1;97;41m"
 #define RST "\033[0m"
+#define DIM "\033[2m"
+
+/* the runner prints the function name in 18 columns, tests start after it */
+#define INDENT 18
 
 static const char	*g_desc = "start";
+static int			g_line;
+static int			g_col = INDENT;
+static int			g_cols = 80;
+static int			g_where;
 static int			g_n;
 static int			g_ko;
 static int			g_fail = -1;
@@ -53,30 +64,83 @@ size_t	alloc_max(void)
 	return (g_max);
 }
 
+/* prints n)word, goes to a new line first when the terminal is full */
+static void	t_print(int n, const char *color, const char *word)
+{
+	int	w;
+
+	w = snprintf(NULL, 0, "%d)%s ", n, word);
+	if (g_col + w > g_cols && g_col > INDENT)
+	{
+		printf("\n%*s", INDENT, "");
+		g_col = INDENT;
+	}
+	printf(DIM "%d)" RST "%s%s" RST " ", n, color, word);
+	g_col += w;
+}
+
+/* where mode: offsets of the call stack inside this program, the runner
+** turns them into file:line with addr2line */
+static void	print_stack(void)
+{
+	void	*bt[32];
+	Dl_info	me;
+	Dl_info	d;
+	int		n;
+	int		i;
+
+	if (!dladdr((void *)&print_stack, &me))
+		return ;
+	n = backtrace(bt, 32);
+	i = 0;
+	while (i < n)
+	{
+		if (dladdr(bt[i], &d) && d.dli_fbase == me.dli_fbase)
+			fprintf(stderr, "   frame %lx\n",
+				(unsigned long)((char *)bt[i] - (char *)me.dli_fbase) - 1);
+		i++;
+	}
+}
+
 /* signal handler: says which test crashed and exits */
 static void	crash(int sig)
 {
 	g_fail = -1;
-	printf(FAIL "CRASH" RST " ");
-	fprintf(stderr, "CRASH (%s) in test %d: %s\n", strsignal(sig), g_n + 1,
-		g_desc);
+	t_print(g_n + 1, FAIL, "CRASH");
+	fprintf(stderr, "CRASH (%s) in test %d (line %d): %s\n", strsignal(sig),
+		g_n + 1, g_line, g_desc);
+	if (g_where)
+		print_stack();
 	_exit(128 + sig);
 }
 
-/* runs before main: unbuffered output, catches the crash signals */
+/* runs before main: unbuffered output, terminal width, crash signals */
 __attribute__((constructor)) static void	t_init(void)
 {
+	const char	*cols;
+
 	setvbuf(stdout, NULL, _IONBF, 0);
+	cols = getenv("T_COLS");
+	if (cols && atoi(cols) > INDENT + 20)
+		g_cols = atoi(cols) - 2;
+	g_where = getenv("T_WHERE") && !strcmp(getenv("T_WHERE"), "1");
+	if (g_where)
+	{
+		void	*warm[1];
+
+		backtrace(warm, 1);
+	}
 	signal(SIGSEGV, crash);
 	signal(SIGBUS, crash);
 	signal(SIGABRT, crash);
 	signal(SIGFPE, crash);
 }
 
-/* name of the next test, used in the reports */
-void	t_set(const char *desc)
+/* name and line of the next test, used in the reports */
+void	t_set(const char *desc, int line)
 {
 	g_desc = desc;
+	g_line = line;
 }
 
 /* extra detail line in the trace */
@@ -97,11 +161,11 @@ void	t_check(int ok, const char *expr, int line)
 	g_n++;
 	if (ok)
 	{
-		printf(PASS "OK " RST);
+		t_print(g_n, PASS, "OK");
 		return ;
 	}
 	g_ko++;
-	printf(FAIL "KO" RST " ");
+	t_print(g_n, FAIL, "KO");
 	fprintf(stderr, "KO test %d (line %d): %s\n   %s\n", g_n, line, g_desc,
 		expr);
 }

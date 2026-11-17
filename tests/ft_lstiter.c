@@ -25,12 +25,15 @@ int	main(void)
 	l->next = t_node(strdup("b"));
 	l->next->next = t_node(strdup("c"));
 	ft_lstiter(l, see);
+	// f gets the content and not the node, once per node from head to tail
 	T("f called on every content in order", !strcmp(g_seen, "abc"));
 	ft_lstiter(l, upper);
+	// f works on the real content and not on a copy
 	T("f can modify the content", !strcmp(l->content, "A")
 		&& !strcmp(l->next->next->content, "C"));
 	g_n = 0;
 	ft_lstiter(NULL, see);
+	// an empty list must not call f or crash
 	T("empty list never calls f", g_n == 0);
 	t_lstfree(l);
 	return (t_end());

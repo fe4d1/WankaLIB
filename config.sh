@@ -39,3 +39,10 @@ declare -A ALLOWED=(
 
 README_LINE='^[*_]This project has been created as part of the 42 curriculum by .+[*_]$'
 README_SECTIONS="Description Instructions Resources"
+
+# 1 to start with where on: crashes and memory errors show the line of
+# your code that failed (w in the menu, -w on the command line)
+WHERE=0
+
+# 0 to never look for a new version of the tester
+UPDATE_CHECK=1

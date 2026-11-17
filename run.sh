@@ -7,11 +7,14 @@ BUILD=$ROOT/.build
 BIN=$ROOT/.bin
 TR=$ROOT/traces
 SAVED=$ROOT/.libft_path
+UPD=$ROOT/.update
+ARGS=("$@")
 ARG_PATH=
 SELF=
 ALL="$PART1 $PART2 $PART3"
 CHECKS="files header norm make protos symbols readme"
 VALGRIND=1
+WHERE=${WHERE:-0}
 LOGIN=
 FAILS=()
 WARNS=0
@@ -70,7 +73,8 @@ END
 usage()
 {
 	cat <<END
-usage: ./run.sh [-p libft_path] [-u login] [-n] [target ...]
+usage: ./run.sh [-p libft_path] [-u login] [-n] [-w] [target ...]
+       ./run.sh update | clean | reset
 
 ./run.sh alone opens the menu and stays open: run things, change the
 libft folder, read this help, and leave with q. Your libft is copied
@@ -90,6 +94,8 @@ quick levels
 in the menu only
   p         change the libft folder (it is remembered)
   v         turn valgrind on or off
+  w         where: the line of your code that crashes or leaks (on/off)
+  u         update the tester (when the menu says there is one)
   q         quit
 
 targets (mix as many as you want, levels included)
@@ -106,7 +112,12 @@ targets (mix as many as you want, levels included)
   part1 part2 part3
   ft_split  one function (strlen works too)
 
+output
+  every test has a number: ft_atoi  1)OK 2)OK 3)KO
+  traces/ft_atoi.txt says why test 3 exists, its code, got and expected
+
 maintenance
+  update    download the last version of the tester (git pull)
   clean     delete .build .bin and traces
   reset     put the tester back as in its last commit (asks first)
 
@@ -114,6 +125,8 @@ options
   -p path   libft directory
   -u login  expected login in the 42 headers
   -n        no valgrind (faster)
+  -w        where: show the line of your code that crashes or leaks
+            (a wrong result has no line, only crashes and memory errors)
 END
 }
 
@@ -395,19 +408,22 @@ check_readme()
 
 run_func()
 {
-	local f=$1 rc mem=""
+	local f=$1 rc mem="" lib loc="" vgw=""
 	printf "  %-16s" "$f"
 	[ -f "$ROOT/tests/$f.c" ] || { printf "${Y}no test file${D}\n"; return; }
 	F_RUN=$((F_RUN + 1))
+	lib=$BUILD
+	[ $WHERE = 1 ] && lib=$BUILD/.where
 	if ! cc -g -w "$ROOT/tests/$f.c" "$ROOT/utils/check.c" -I "$BUILD" \
-		-I "$ROOT/utils" -L "$BUILD" -lft -Wl,--wrap=malloc -o "$BIN/$f" \
+		-I "$ROOT/utils" -L "$lib" -lft -ldl -Wl,--wrap=malloc -o "$BIN/$f" \
 		2> "$TR/$f.txt"; then
 		printf "${R}does not compile${D}  (traces/$f.txt)\n"
 		FAILS+=("$f: does not compile or is missing")
 		return
 	fi
 	if [ $VALGRIND = 1 ]; then
-		timeout 20 valgrind -q --leak-check=full --show-leak-kinds=all \
+		[ $WHERE = 1 ] && vgw=--fullpath-after=
+		timeout 20 valgrind -q --leak-check=full --show-leak-kinds=all $vgw \
 			--errors-for-leak-kinds=all --log-file="$TR/$f.vg" "$BIN/$f" 2> "$TR/$f.txt"
 		rc=$?
 		[ -s "$TR/$f.vg" ] && mem=1
@@ -415,7 +431,14 @@ run_func()
 		timeout 10 "$BIN/$f" 2> "$TR/$f.txt"
 		rc=$?
 	fi
+	explain "$ROOT/tests/$f.c" "$TR/$f.txt"
 	[ $rc = 124 ] && printf "${R}TIMEOUT${D}" && echo "TIMEOUT infinite loop?" >> "$TR/$f.txt"
+	if [ $WHERE = 1 ] && { [ $rc != 0 ] || [ -s "$TR/$f.vg" ]; }; then
+		where_in_code "$BIN/$f" "$TR/$f.txt" "$TR/$f.vg" > "$TR/$f.where"
+		loc=$(sed -n 's/^   \([^ ]*:[0-9]*\) .*/\1/p' "$TR/$f.where" | head -1)
+		cat "$TR/$f.where" >> "$TR/$f.txt"
+		rm -f "$TR/$f.where"
+	fi
 	if [ -n "$mem" ]; then
 		printf " ${R}MEM KO${D}"
 		{ echo; echo "valgrind:"; cat "$TR/$f.vg"; } >> "$TR/$f.txt"
@@ -424,13 +447,91 @@ run_func()
 	fi
 	rm -f "$TR/$f.vg"
 	if [ $rc != 0 ] || [ -n "$mem" ]; then
-		printf "  (traces/$f.txt)\n"
-		FAILS+=("$f")
+		printf "  (traces/$f.txt)"
+		[ -n "$loc" ] && printf "  ${O}%s${D}" "$loc"
+		printf "\n"
+		FAILS+=("$f$(failed_tests "$TR/$f.txt")")
 	else
 		printf "\n"
 		rm -f "$TR/$f.txt"
 		F_OK=$((F_OK + 1))
 	fi
+}
+
+# where mode: libft built again from the same files with -g -O0, so a crash
+# or a valgrind error can be turned into file:line of the student code
+build_where()
+{
+	local d=$BUILD/.where o
+	[ -f "$d/libft.a" ] && return 0
+	rm -rf "$d" && mkdir -p "$d"
+	for o in $(ar t "$BUILD/libft.a" | grep '\.o$'); do
+		[ -f "$BUILD/${o%.o}.c" ] || continue
+		cc -g -O0 -w -c "$BUILD/${o%.o}.c" -I "$BUILD" -o "$d/$o" \
+			2>> "$TR/where.txt" || { warn "where: ${o%.o}.c does not compile"; return 1; }
+	done
+	rm -f "$TR/where.txt"
+	ar rcs "$d/libft.a" "$d"/*.o
+}
+
+# where mode: the lines of the libft found in the crash stack (frame lines
+# written by check.c) and in the valgrind report, with the code of each line
+where_in_code()
+{
+	local bin=$1 tr=$2 vg=$3 locs l file n
+	locs=$( {
+		sed -n 's/^   frame \([0-9a-f]*\)$/0x\1/p' "$tr" | xargs -r addr2line -e "$bin" 2> /dev/null
+		[ -s "$vg" ] && grep -oE '\(/[^()]+:[0-9]+\)' "$vg" | tr -d '()'
+	} | sed 's/ (discriminator.*//' | grep -F "$BUILD/" | awk '!seen[$0]++' | head -8)
+	sed -i '/^   frame [0-9a-f]*$/d' "$tr"
+	[ -s "$tr" ] && echo
+	if [ -z "$locs" ] && ! grep -q '^CRASH' "$tr" && [ ! -s "$vg" ]; then
+		echo "where in your code: a wrong result has no line, nothing crashed"
+		echo "   use the why, got and expected above to find it"
+		return
+	elif [ -z "$locs" ]; then
+		echo "where in your code: not found (the error is outside the libft code)"
+		return
+	fi
+	echo "where in your code (first line is where it happened, the rest called it):"
+	for l in $locs; do
+		file=${l%:*} n=${l##*:}
+		printf "   %-20s %s\n" "$(basename "$file"):$n" \
+			"$(sed -n "${n}p" "$file" | sed 's/^[[:space:]]*//')"
+	done
+}
+
+# after every KO or CRASH line of a trace adds the // comments written above
+# that test (why) and the test itself (code), taken from tests/ft_name.c
+explain()
+{
+	[ -s "$2" ] || return
+	awk -v src="$1" '
+		BEGIN { while ((getline l < src) > 0) s[++n] = l }
+		{ print }
+		/^(KO|CRASH)/ && match($0, /\(line [0-9]+\)/) {
+			L = substr($0, RSTART + 6, RLENGTH - 7) + 0
+			if (L < 1 || L > n) next
+			for (i = L - 1; i > 0 && s[i] ~ /^[ \t]*\/\//; i--) ;
+			for (j = i + 1; j < L; j++) {
+				t = s[j]; sub(/^[ \t]*\/\/ ?/, "", t)
+				print "   why   " t
+			}
+			for (j = L; j <= n && j < L + 4; j++) {
+				t = s[j]; gsub(/^[ \t]+/, "", t)
+				print (j == L ? "   code  " : "         ") t
+				if (s[j] ~ /;[ \t]*$/) break
+			}
+		}' "$2" > "$2.tmp" && mv "$2.tmp" "$2"
+}
+
+# ": test 3 7" from a trace, empty when no test number is there
+failed_tests()
+{
+	local n
+	n=$(sed -nE 's/^(KO|CRASH).* test ([0-9]+).*/\2/p' "$1" | sort -nu \
+		| head -12 | tr '\n' ' ')
+	[ -n "$n" ] && printf ": test %s" "${n% }"
 }
 
 # absolute path of a libft folder into LIBFT, 1 if it is not a folder
@@ -472,6 +573,20 @@ ask_path()
 	fi
 }
 
+toggle_where()
+{
+	if [ $WHERE = 1 ]; then
+		WHERE=0
+		printf "  where off: only OK or KO, find the bug yourself\n"
+	else
+		WHERE=1
+		printf "  where on: crashes and memory errors show the line of your code\n"
+		printf "  ${M}a wrong result has no line: read the why and the got/expected${D}\n"
+		command -v valgrind > /dev/null \
+			|| printf "  ${M}valgrind is not installed, only crashes get a line${D}\n"
+	fi
+}
+
 toggle_valgrind()
 {
 	if ! command -v valgrind > /dev/null; then
@@ -487,19 +602,25 @@ toggle_valgrind()
 
 menu()
 {
-	local vg=on lib=${LIBFT/#$HOME/\~}
+	local vg=on wh=off lib=${LIBFT/#$HOME/\~}
+	[ $WHERE = 1 ] && wh=on
 	[ $VALGRIND = 1 ] || vg=off
 	[ -n "$lib" ] || lib="${Y}not found, press p${D}"
 	printf "\n${B}== menu ==${D}\n"
 	printf "  ${M}libft${D}     %s\n" "$lib"
-	printf "  ${M}valgrind${D}  %s\n\n" "$vg"
+	printf "  ${M}valgrind${D}  %s\n" "$vg"
+	printf "  ${M}where${D}     %s\n" "$wh"
+	[ -s "$UPD" ] && printf "  ${M}update${D}    ${O}new version available, press u${D}\n"
+	printf "\n"
 	printf "  ${W}1${D}  soft      function tests without valgrind (fast)\n"
 	printf "  ${W}2${D}  moderate  norm, Makefile and function tests with valgrind\n"
 	printf "  ${W}3${D}  strict    everything, warnings count as KO\n"
 	printf "  ${W}4${D}  checks    every check, no function tests\n"
 	printf "  ${W}p${D}  path      change the libft folder\n"
 	printf "  ${W}v${D}  valgrind  turn it on or off\n"
+	printf "  ${W}w${D}  where     show the line of your code that crashes or leaks\n"
 	printf "  ${W}h${D}  help      every target and option explained\n"
+	[ -s "$UPD" ] && printf "  ${W}u${D}  update    download the new version of the tester\n"
 	printf "  ${W}c${D}  clean     ${W}q${D}  quit\n"
 	printf "  ${M}or type any targets, like: norm split atoi${D}\n"
 	printf "  ${M}your libft is copied again on every run:${D}\n"
@@ -514,8 +635,9 @@ interactive()
 		if [ $full = 1 ]; then
 			menu
 		else
-			printf "\n  ${M}1 soft  2 moderate  3 strict  4 checks  p path"
+			printf "\n  ${M}1 soft  2 moderate  3 strict  4 checks  p path  w where"
 			printf "  h help  q quit  (Enter: full menu)${D}\n"
+			[ -s "$UPD" ] && printf "  ${O}u update: new version of the tester${D}\n"
 		fi
 		full=0
 		printf "\n"
@@ -529,6 +651,8 @@ interactive()
 			4) run_targets checks ;;
 			p|path) ask_path ;;
 			v|valgrind) toggle_valgrind ;;
+			w|where) toggle_where ;;
+			u|update) update && exec "$ROOT/run.sh" "${ARGS[@]}" ;;
 			h|help|-h) printf "\n"; usage ;;
 			c|clean) clean ;;
 			q|quit|exit) break ;;
@@ -567,7 +691,58 @@ run_funcs()
 	local f
 	[ "$SECTION" = functions ] || section functions
 	build || return
+	if [ $WHERE = 1 ]; then build_where || return; fi
 	for f in "$@"; do run_func "$f"; done
+}
+
+# git with no password prompt and a short timeout, for the update check
+quiet_git()
+{
+	GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5" \
+		timeout 10 git -C "$ROOT" "$@" 2> /dev/null
+}
+
+# looks at GitHub without changing anything: .update holds the new commit
+# when the remote has one that this clone does not have yet
+check_update()
+{
+	local remote
+	[ "$UPDATE_CHECK" = 1 ] || return
+	git -C "$ROOT" rev-parse --git-dir > /dev/null 2>&1 || return
+	remote=$(quiet_git ls-remote origin HEAD | cut -f1)
+	[ -n "$remote" ] || return
+	if git -C "$ROOT" merge-base --is-ancestor "$remote" HEAD 2> /dev/null; then
+		rm -f "$UPD"
+	else
+		echo "$remote" > "$UPD"
+	fi
+}
+
+# git pull of the tester: 0 updated, 1 error, 2 already up to date
+update()
+{
+	local old new
+	if ! git -C "$ROOT" rev-parse --git-dir > /dev/null 2>&1; then
+		echo "  update needs a git clone of the tester:"
+		echo "  git clone https://github.com/fe4d1/WankaLIB.git"
+		return 1
+	fi
+	old=$(git -C "$ROOT" rev-parse HEAD)
+	echo "  downloading the last version..."
+	if ! GIT_TERMINAL_PROMPT=0 git -C "$ROOT" pull -q --ff-only --autostash; then
+		printf "  ${Y}update failed${D}: no internet, or the tester has commits of\n"
+		printf "  its own. ./run.sh reset puts it back as in its last commit\n"
+		return 1
+	fi
+	rm -f "$UPD"
+	new=$(git -C "$ROOT" rev-parse HEAD)
+	if [ "$old" = "$new" ]; then
+		echo "  already up to date"
+		return 2
+	fi
+	printf "  ${G}updated${D}, what changed:\n"
+	git -C "$ROOT" log --format='    %s' "$old..$new" | head -20
+	return 0
 }
 
 clean()
@@ -607,6 +782,8 @@ run_targets()
 	[ "$ROOT/.." -ef "$LIBFT" ] && SELF=${ROOT##*/}
 	rm -rf "$TR" && mkdir -p "$TR"
 	printf "\n  ${M}%s${D}\n" "$(say "${HELLO[@]}")"
+	export T_COLS=$(tput cols 2> /dev/null || echo 80)
+	export T_WHERE=$WHERE
 
 	for t in "$@"; do
 		case $t in
@@ -659,14 +836,16 @@ run_targets()
 
 case $1 in
 	clean) clean; exit 0 ;;
+	update) update; [ $? != 1 ]; exit $? ;;
 	reset) reset; exit $? ;;
 esac
 
-while getopts "p:u:nh" opt; do
+while getopts "p:u:nwh" opt; do
 	case $opt in
 		p) ARG_PATH=$OPTARG ;;
 		u) LOGIN=$OPTARG ;;
 		n) VALGRIND=0 ;;
+		w) WHERE=1 ;;
 		h) usage; exit 0 ;;
 		*) usage; exit 1 ;;
 	esac
@@ -680,6 +859,8 @@ if [ -n "$ARG_PATH" ] && [ -z "$LIBFT" ]; then
 	exit 1
 fi
 banner
+[ -t 1 ] && { check_update & } 2> /dev/null
+[ -s "$UPD" ] && printf "  ${O}new version of the tester: press u in the menu or ./run.sh update${D}\n"
 
 if [ "$1" = menu ] || { [ $# = 0 ] && [ -t 0 ] && [ -t 1 ]; }; then
 	interactive
