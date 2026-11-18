@@ -1,4 +1,4 @@
-#include "check.h"
+#include "list.h"
 #include <stdlib.h>
 
 /* node keeps the pointer (no copy), next is NULL */

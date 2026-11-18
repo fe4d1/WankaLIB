@@ -1,4 +1,4 @@
-#include "check.h"
+#include "list.h"
 
 /* node becomes the head and points to the old head */
 int	main(void)

@@ -9,6 +9,7 @@ TR=$ROOT/traces
 SAVED=$ROOT/.libft_path
 UPD=$ROOT/.update
 UPD_PID=
+declare -A USES
 ARGS=("$@")
 ARG_PATH=
 SELF=
@@ -158,37 +159,88 @@ prepare()
 		-exec cp {} "$BUILD" \;
 }
 
+# BUILT: 0 not yet, 1 built by make, 2 make failed, 3 built by the tester
+# without the Makefile, 4 nothing could be built
 build()
 {
-	[ $BUILT = 1 ] && return 0
-	[ $BUILT = 2 ] && { warn "skipped (make failed)"; return 1; }
-	prepare
-	if make -C "$BUILD" > "$TR/make.txt" 2>&1 && [ -f "$BUILD/libft.a" ]; then
-		BUILT=1
-		rm -f "$TR/make.txt"
-		return 0
+	case $BUILT in 1|3) return 0 ;; 4) return 1 ;; esac
+	if [ $BUILT = 0 ]; then
+		prepare
+		if [ ! -f "$BUILD/Makefile" ]; then
+			ko "no Makefile"
+		elif timeout 120 make -C "$BUILD" > "$TR/make.txt" 2>&1 \
+			&& [ -f "$BUILD/libft.a" ]; then
+			BUILT=1
+			rm -f "$TR/make.txt"
+			return 0
+		else
+			ko "make failed or libft.a not created" make.txt
+		fi
 	fi
-	BUILT=2
-	ko "make failed" make.txt
-	return 1
+	build_alone
+}
+
+# no Makefile or make failed: every .c is compiled alone and what compiles
+# goes in a libft.a made by the tester, so everything else is still tested
+build_alone()
+{
+	local c n=0
+	NOCOMP=" "
+	rm -f "$BUILD"/*.o "$BUILD/libft.a" "$TR/build.txt"
+	rm -rf "$BUILD/.where"
+	[ -f "$BUILD/libft.h" ] || { BUILT=4; return 1; }
+	for c in "$BUILD"/*.c; do
+		[ -f "$c" ] || continue
+		if cc -w -c "$c" -I "$BUILD" -o "${c%.c}.o" 2> "$TR/build.tmp"; then
+			n=$((n + 1))
+		else
+			NOCOMP="$NOCOMP$(basename "${c%.c}") "
+			{ echo "== $(basename "$c")"; cat "$TR/build.tmp"; echo; } >> "$TR/build.txt"
+		fi
+	done
+	rm -f "$TR/build.tmp"
+	if [ $n = 0 ]; then
+		BUILT=4
+		warn "no .c file compiles, nothing can be tested"
+		return 1
+	fi
+	ar rcs "$BUILD/libft.a" "$BUILD"/*.o
+	BUILT=3
+	warn "tested with a libft.a built by the tester, not by your Makefile"
 }
 
 check_files()
 {
 	section files
-	local expected="$EXTRA_FILES" f missing=0 top
+	local expected="$EXTRA_FILES" f top n ahead lost=()
 	for f in $ALL; do expected="$expected $f.c"; done
 	for f in $expected; do
-		[ -f "$LIBFT/$f" ] || { ko "missing $f"; missing=1; }
+		[ -f "$LIBFT/$f" ] || lost+=("$f")
 	done
-	[ $missing = 0 ] && ok "all $(echo $expected | wc -w) required files are there"
+	n=${#lost[@]}
+	if [ $n = 0 ]; then
+		ok "all $(echo $expected | wc -w) required files are there"
+	elif [ $n -le 5 ]; then
+		for f in "${lost[@]}"; do ko "missing $f"; done
+	else
+		ko "missing $n of $(echo $expected | wc -w) required files"
+		printf "        ${M}%s${D}\n" "$(echo "${lost[@]}" | fold -s -w 64 | sed '2,$s/^/        /')"
+	fi
 	if top=$(git -C "$LIBFT" rev-parse --show-toplevel 2>/dev/null); then
 		[ "$top" = "$LIBFT" ] || warn "libft is not at the root of the git repo"
 		for f in $(git -C "$LIBFT" ls-files); do
 			[[ " $expected " == *" $f "* ]] || ko "extra file tracked in git: $f"
 		done
+		for f in $expected; do
+			[ -f "$LIBFT/$f" ] || continue
+			git -C "$LIBFT" ls-files --error-unmatch "$f" > /dev/null 2>&1 \
+				|| ko "$f is not in git (git add it or it is not graded)"
+		done
 		[ -z "$(git -C "$LIBFT" status --porcelain | grep -vxF "?? ${SELF:-/}/")" ] \
 			|| warn "uncommitted changes (only pushed work is graded)"
+		ahead=$(git -C "$LIBFT" rev-list --count '@{u}..HEAD' 2> /dev/null)
+		[ -n "$ahead" ] && [ "$ahead" -gt 0 ] \
+			&& warn "$ahead commits not pushed (only pushed work is graded)"
 	else
 		warn "not a git repo, cannot check tracked files"
 	fi
@@ -242,11 +294,13 @@ check_header()
 check_norm()
 {
 	section norm
-	local out
+	local out files
 	command -v norminette > /dev/null || { warn "norminette not installed"; return; }
-	out=$(cd "$LIBFT" && norminette *.c *.h 2>&1 | grep -v ': OK!$')
+	files=$(cd "$LIBFT" && ls *.c *.h 2> /dev/null)
+	[ -n "$files" ] || { ko "no .c or .h file to check"; return; }
+	out=$(cd "$LIBFT" && norminette $files 2>&1 | grep -v ': OK!$')
 	if [ -z "$out" ]; then
-		ok "$(ls "$LIBFT"/*.c "$LIBFT"/*.h | wc -l) files"
+		ok "$(echo $files | wc -w) files"
 	else
 		echo "$out" > "$TR/norm.txt"
 		ko "$(echo "$out" | grep -c 'Error!$') files with errors" norm.txt
@@ -259,7 +313,7 @@ check_make()
 	section makefile
 	local mk=$BUILD/Makefile r lines n nc fl extra
 	prepare
-	[ -f "$mk" ] || { ko "no Makefile"; return; }
+	[ -f "$mk" ] || { ko "no Makefile"; BUILT=2; return; }
 	for r in all clean fclean re; do
 		grep -qE "^$r[[:space:]]*:" "$mk" || ko "rule $r missing"
 	done
@@ -270,10 +324,14 @@ check_make()
 	grep -qi libtool "$mk" && ko "libtool is forbidden"
 	grep -qE '^bonus[[:space:]]*:' "$mk" && warn "bonus rule but this subject has no bonus"
 	r=0
+	[ -f "$BUILD/libft.h" ] || ko "no libft.h"
 	for fl in "$BUILD"/*.c; do
-		cc $FLAGS -c "$fl" -I "$BUILD" -o /dev/null 2>> "$TR/compile.txt" \
-			|| { ko "$(basename "$fl") does not compile with $FLAGS" compile.txt; r=1; }
+		[ -f "$fl" ] || continue
+		cc $FLAGS -c "$fl" -I "$BUILD" -o /dev/null 2>> "$TR/compile.txt" && continue
+		r=$((r + 1))
+		[ $r -le 5 ] && ko "$(basename "$fl") does not compile with $FLAGS" compile.txt
 	done
+	[ $r -gt 5 ] && ko "and $((r - 5)) more .c files do not compile" compile.txt
 	[ $r = 0 ] && ok "every .c compiles alone with $FLAGS" && rm -f "$TR/compile.txt"
 
 	lines=$(make -C "$BUILD" -n 2> /dev/null \
@@ -342,7 +400,7 @@ check_make()
 check_protos()
 {
 	section prototypes
-	build || return
+	build || { warn "skipped, nothing could be built"; return; }
 	grep -qE '^#[[:space:]]*ifndef' "$BUILD/libft.h" && grep -qE '^#[[:space:]]*define' "$BUILD/libft.h" \
 		&& ok "include guard" || ko "libft.h has no include guard"
 	grep -qw restrict "$BUILD"/*.c "$BUILD"/*.h && ko "restrict is forbidden"
@@ -359,7 +417,7 @@ check_protos()
 check_symbols()
 {
 	section symbols
-	build || return
+	build || { warn "skipped, nothing could be built"; return; }
 	local objs=$BUILD/.objs f s und bad=0
 	rm -rf "$objs" && mkdir "$objs" && (cd "$objs" && ar x ../libft.a)
 	for f in $ALL; do
@@ -409,17 +467,34 @@ check_readme()
 
 run_func()
 {
-	local f=$1 rc mem="" lib loc="" vgw=""
+	local f=$1 rc mem="" lib loc="" vgw="" why extra=""
 	printf "  %-16s" "$f"
 	[ -f "$ROOT/tests/$f.c" ] || { printf "${Y}no test file${D}\n"; return; }
 	F_RUN=$((F_RUN + 1))
+	if why=$(missing "$f"); then
+		printf "${R}MISSING${D}  %s\n" "$why"
+		FAILS+=("$f: missing, $why")
+		return
+	fi
 	lib=$BUILD
-	[ $WHERE = 1 ] && lib=$BUILD/.where
-	if ! cc -g -w "$ROOT/tests/$f.c" "$ROOT/utils/check.c" -I "$BUILD" \
+	[ $WHERE = 1 ] && [ -f "$BUILD/.where/libft.a" ] && lib=$BUILD/.where
+	[[ $f == ft_lst* ]] && extra=$ROOT/utils/list.c
+	if ! cc -g -w "$ROOT/tests/$f.c" "$ROOT/utils/check.c" $extra -I "$BUILD" \
 		-I "$ROOT/utils" -L "$lib" -lft -ldl -Wl,--wrap=malloc -o "$BIN/$f" \
 		2> "$TR/$f.txt"; then
+		why=$(grep -oE "undefined reference to .ft_[a-z_]+" "$TR/$f.txt" \
+			| sed -E 's/.*(ft_[a-z_]+)/\1/' | sort -u | tr '\n' ' ')
+		if [ -n "$why" ]; then
+			printf "${R}MISSING${D}  it uses %s, not in libft.a\n" "${why% }"
+			FAILS+=("$f: uses ${why% }, which is missing")
+			return
+		fi
 		printf "${R}does not compile${D}  (traces/$f.txt)\n"
-		FAILS+=("$f: does not compile or is missing")
+		{ echo "the test could not be compiled with your libft.h and libft.a"
+		  echo "usually a prototype or t_list that is not like in the subject"
+		  echo "./run.sh protos compares them"; echo; cat "$TR/$f.txt"; } > "$TR/$f.tmp"
+		mv "$TR/$f.tmp" "$TR/$f.txt"
+		FAILS+=("$f: test does not compile with your libft.h")
 		return
 	fi
 	if [ $VALGRIND = 1 ]; then
@@ -693,12 +768,93 @@ bar()
 	printf "%s${D}" "$out"
 }
 
+# what the libft really has, looked at before the function tests:
+# DEFINED functions in libft.a, PROTOS names in libft.h, HAS_LIST t_list
+scan_libft()
+{
+	DEFINED=" $(nm -g --defined-only "$BUILD/libft.a" 2> /dev/null \
+		| awk '$2 == "T" { print $3 }' | tr '\n' ' ') "
+	PROTOS=" $(grep -oE 'ft_[a-z_]+[[:space:]]*\(' "$BUILD/libft.h" 2> /dev/null \
+		| tr -d ' \t(' | tr '\n' ' ') "
+	HAS_LIST=0
+	grep -qE '(^|[^a-z_])t_list[[:space:]]*;' "$BUILD/libft.h" 2> /dev/null && HAS_LIST=1
+	# a function that calls a missing one cannot link: for each function of
+	# libft.a the missing ft_ function it needs, also through other functions
+	USES=()
+	while read -r fn root; do
+		USES[$fn]=$root
+	done < <(nm -A "$BUILD/libft.a" 2> /dev/null | awk '
+		{
+			i = index($0, ":"); r = substr($0, i + 1)
+			j = index(r, ":"); o = substr(r, 1, j - 1)
+			n = split(substr(r, j + 1), w, " "); t = w[n - 1]; s = w[n]
+			if (t == "T") { def[s] = 1; own[s] = o }
+			else if (t == "U" && s ~ /^ft_/) und[o] = und[o] " " s
+		}
+		END {
+			do {
+				ch = 0
+				for (o in und) {
+					if (o in bad) continue
+					n = split(und[o], l, " ")
+					for (k = 1; k <= n; k++) {
+						s = l[k]
+						if (!(s in def)) { bad[o] = s; ch = 1; break }
+						if (own[s] in bad) { bad[o] = bad[own[s]]; ch = 1; break }
+					}
+				}
+			} while (ch)
+			for (s in own) if (own[s] in bad) print s, bad[own[s]]
+		}')
+}
+
+# prints why a function cannot be tested yet, 1 when it can
+missing()
+{
+	if [ ! -f "$BUILD/libft.h" ]; then
+		echo "there is no libft.h"
+	elif [[ $1 == ft_lst* ]] && [ $HAS_LIST = 0 ]; then
+		echo "t_list is not defined in libft.h"
+	elif [[ "$NOCOMP" == *" $1 "* ]]; then
+		echo "$1.c does not compile (traces/build.txt)"
+	elif [[ "$DEFINED" != *" $1 "* ]]; then
+		if [ ! -f "$BUILD/$1.c" ]; then
+			echo "not written yet (no $1.c)"
+		elif [ $BUILT = 3 ]; then
+			echo "$1.c has no $1 in it (empty or not finished)"
+		else
+			echo "not in libft.a ($1.c is empty or not in the Makefile)"
+		fi
+	elif [ -n "${USES[$1]}" ]; then
+		echo "it uses ${USES[$1]}, which is missing"
+	elif [[ "$PROTOS" != *" $1 "* ]]; then
+		echo "no prototype of $1 in libft.h"
+	else
+		return 1
+	fi
+}
+
 run_funcs()
 {
-	local f
+	local f n=0 names=""
 	[ "$SECTION" = functions ] || section functions
-	build || return
-	if [ $WHERE = 1 ]; then build_where || return; fi
+	build
+	[ $WHERE = 1 ] && [ -f "$BUILD/libft.a" ] && build_where
+	scan_libft
+	if [ ! -f "$BUILD/libft.h" ]; then
+		printf "  ${R}MISSING${D}  there is no libft.h, none of the %d functions can be tested\n" $#
+		F_RUN=$((F_RUN + $#))
+		FAILS+=("functions: there is no libft.h, $# functions not tested")
+		return
+	fi
+	for f in "$@"; do
+		missing "$f" > /dev/null && { n=$((n + 1)); names="$names ${f#ft_}"; }
+	done
+	if [ $n -gt 0 ] && [ $# -gt 1 ]; then
+		printf "  ${Y}%d of %d missing or not testable yet, marked MISSING:${D}\n" $n $#
+		printf "  ${M}%s${D}\n" "$(echo $names | fold -s -w 70 | sed '2,$s/^/  /')"
+		printf "  ${M}the rest is tested normally${D}\n\n"
+	fi
 	for f in "$@"; do run_func "$f"; done
 }
 
@@ -806,7 +962,7 @@ run_targets()
 		printf "  ${Y}no libft folder yet: press p and type where it is${D}\n"
 		return 1
 	fi
-	FAILS=() WARNS=0 BUILT=0 STRICT=0 SECTION=
+	FAILS=() WARNS=0 BUILT=0 STRICT=0 SECTION= NOCOMP=" "
 	CHK_OK=0 CHK_KO=0 F_RUN=0 F_OK=0 SECONDS=0
 	SELF=
 	[ "$ROOT/.." -ef "$LIBFT" ] && SELF=${ROOT##*/}
@@ -859,7 +1015,11 @@ run_targets()
 	printf "\n  ${O}%s${D}\n" "$v"
 	printf "\n  ${R} %d KO ${D}  ${B}at 42 this run would be a 0${D}\n" ${#FAILS[@]}
 	printf '    %s\n' "${FAILS[@]}"
-	printf "  traces in %s\n" "${TR/#$HOME/\~}"
+	if [ -n "$(ls -A "$TR" 2> /dev/null)" ]; then
+		printf "  traces in %s\n" "${TR/#$HOME/\~}"
+	else
+		rmdir "$TR" 2> /dev/null
+	fi
 	printf "  ${M}%s${D}\n" "$(say "${LOSE[@]}")"
 	return 1
 }

@@ -1,4 +1,4 @@
-#include "check.h"
+#include "list.h"
 
 static char	g_seen[8];
 static int	g_n;

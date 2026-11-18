@@ -278,30 +278,3 @@ int	t_end(void)
 {
 	return (g_ko > 0);
 }
-
-/* makes a node with the real malloc, so it never fails */
-t_list	*t_node(void *content)
-{
-	t_list	*n;
-
-	n = __real_malloc(sizeof(t_list));
-	n->content = content;
-	n->next = NULL;
-	return (n);
-}
-
-/* frees a whole list and its contents */
-void	t_lstfree(void *lst)
-{
-	t_list	*l;
-	t_list	*next;
-
-	l = lst;
-	while (l)
-	{
-		next = l->next;
-		free(l->content);
-		free(l);
-		l = next;
-	}
-}

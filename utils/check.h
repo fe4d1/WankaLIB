@@ -63,8 +63,6 @@ void	alloc_reset(void);
 size_t	alloc_max(void);
 int		cap_open(void);
 
-t_list	*t_node(void *content);
-void	t_lstfree(void *lst);
 void	t_tabfree(void *tab);
 
 #endif

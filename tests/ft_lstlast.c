@@ -1,4 +1,4 @@
-#include "check.h"
+#include "list.h"
 
 /* returns the last node, NULL for an empty list */
 int	main(void)

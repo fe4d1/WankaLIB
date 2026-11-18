@@ -1,4 +1,4 @@
-#include "check.h"
+#include "list.h"
 
 /* node goes last, head changes only if the list was empty */
 int	main(void)

@@ -242,7 +242,7 @@ The exit code is 0 when there is no KO. It is 1 when there is a KO or when nothi
 
 | Target | What it looks at |
 |---|---|
-| `files` | the 43 `.c` files, `Makefile`, `libft.h` and `README.md` exist. Extra files tracked in git. Uncommitted changes |
+| `files` | the 43 `.c` files, `Makefile`, `libft.h` and `README.md` exist. Required files that are not in git (not added). Extra files tracked in git. Uncommitted changes and commits not pushed |
 | `header` | 42 header in every file: 80 columns, right file name, login and mail, same author in all files. The campus in the mail is not checked, so it works for any campus |
 | `norm` | norminette on every `.c` and `.h` |
 | `make` | rules `$(NAME)` `all` `clean` `fclean` `re` exist and work. `NAME` is `libft.a` and it is created at the root. Compiler is `cc`. The three flags on every file, and every `.c` compiles alone with them. Built with `ar`, no `libtool`. No wildcard. No `-std=c99`. No relink |
@@ -271,6 +271,33 @@ What the subject asks and where it is checked
 Two things cannot be checked by a script: that the README resources are real references, and that you can explain your code
 
 ## Function tests
+
+Your libft does not need to be finished. Before the tests the tester looks at what your libft really has: the functions inside `libft.a`, the prototypes in `libft.h`, `t_list` and which functions call a missing one. What cannot be tested is marked `MISSING` with the reason and everything else is tested normally. So a libft without the list functions yet still gets its other 34 functions tested
+
+If there is no Makefile, or `make` fails (one `.c` with an error is enough), that is a `KO`, and then the tester compiles every `.c` alone and builds its own `libft.a` with what compiles, so the rest is still tested. You see `WARN tested with a libft.a built by the tester`
+
+```
+== functions ==
+  9 of 43 not found in your libft, marked MISSING:
+  lstnew lstadd_front lstsize lstlast lstadd_back lstdelone lstclear
+  lstiter lstmap
+  the rest is tested normally
+
+  ft_isalpha      1)OK 2)OK 3)OK 4)OK 5)OK 6)OK 7)OK
+  ...
+  ft_lstnew       MISSING  t_list is not defined in libft.h
+```
+
+| Reason | What to do |
+|---|---|
+| `there is no libft.h` | nothing can be tested without it |
+| `t_list is not defined in libft.h` | add the `t_list` structure of the subject to `libft.h` |
+| `ft_name.c does not compile` | the error is in `traces/build.txt` |
+| `not written yet (no ft_name.c)` | write it |
+| `not in libft.a (ft_name.c is empty or not in the Makefile)` | finish it, or add its `.c` to the Makefile |
+| `ft_name.c has no ft_name in it` | the file compiles but the function is not there (no Makefile case) |
+| `it uses ft_other, which is missing` | it calls a function that is missing, fix that one first |
+| `no prototype of ft_name in libft.h` | add the prototype to `libft.h` |
 
 One file per function in `tests/`. Each one checks
 
@@ -306,6 +333,7 @@ The number is the test number inside that function. It is the same number you se
 | `MEM KO` | valgrind found a problem. The details are in the trace file |
 | `CRASH` | the function crashed (segfault, bus error, abort). The tests after it did not run |
 | `TIMEOUT` | the test never finished, usually an infinite loop |
+| `MISSING` | the function is not in your libft yet, so it is not tested. It counts as a KO |
 
 `MEM` does not appear with `-n` or with `soft`
 
@@ -400,6 +428,7 @@ The result ends with a score out of 100 for what was run
 | only functions, or only checks | they are the whole 100 |
 
 - a function counts when all its tests pass and valgrind finds nothing
+- a `MISSING` function counts as a failed one
 - with one KO or more the score is never 100
 - with no KO you get `CONGRATZ MY G-DOGO, U GOOD TO GO NOW B)`, in green
 - with a KO you get a message for your score
@@ -444,7 +473,8 @@ To test a new function add its name to a list in `config.sh` and create `tests/f
 run.sh       runner
 config.sh    settings
 tests/       one file per function
-utils/       check.c check.h (the test macros) and protos.c
+utils/       check.c check.h (the test macros), list.c list.h (helpers
+             for the ft_lst tests only) and protos.c
 traces/      created when something fails, deleted by clean
 .libft_path  the libft folder chosen with p in the menu, not tracked by git
 .update      the new commit seen on GitHub, not tracked by git
@@ -644,6 +674,24 @@ Para no escribir `-p` cada vez, pulsa `p` en el menú una vez, o cambia `LIBFT` 
 | `MEM KO` | valgrind encontró un problema. El detalle está en la traza |
 | `CRASH` | la función crasheó (segfault, bus error, abort). Los tests de después no se ejecutaron |
 | `TIMEOUT` | el test no terminó, casi siempre un bucle infinito |
+| `MISSING` | la función todavía no está en tu libft, así que no se testea. Cuenta como KO |
+
+Tu libft no tiene que estar terminada. Antes de los tests el tester mira qué tiene de verdad tu libft: las funciones dentro de `libft.a`, los prototipos de `libft.h`, `t_list` y qué funciones llaman a una que falta. Lo que no está sale como `MISSING` con el motivo y todo lo demás se testea normal. Así una libft que todavía no tiene las listas se testea igual en sus otras 34 funciones
+
+| Motivo | Qué hacer |
+|---|---|
+| `there is no libft.h` | sin él no se puede testear nada |
+| `t_list is not defined in libft.h` | añade la estructura `t_list` del subject a `libft.h` |
+| `ft_name.c does not compile` | el error está en `traces/build.txt` |
+| `not written yet (no ft_name.c)` | escríbela |
+| `not in libft.a (ft_name.c is empty or not in the Makefile)` | termínala, o añade su `.c` al Makefile |
+| `ft_name.c has no ft_name in it` | el archivo compila pero la función no está (caso sin Makefile) |
+| `it uses ft_other, which is missing` | llama a una función que falta, arregla esa primero |
+| `no prototype of ft_name in libft.h` | añade el prototipo a `libft.h` |
+
+Si no hay Makefile, o `make` falla (basta un `.c` con un error), es un `KO`, y después el tester compila cada `.c` por separado y monta su propio `libft.a` con lo que compila, así que el resto se testea igual. Sale `WARN tested with a libft.a built by the tester`
+
+El chequeo `files` también avisa de lo que no está subido: archivos obligatorios que no están en git (sin `git add`), cambios sin commit y commits sin push
 
 `MEM` no aparece con `-n` ni con `soft`
 
